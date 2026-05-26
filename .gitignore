@@ -1,0 +1,5 @@
+reporecon-reports/
+/tmp/reporecon/
+*.swp
+.DS_Store
+node_modules/

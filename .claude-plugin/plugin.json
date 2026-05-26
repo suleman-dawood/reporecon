@@ -1,0 +1,14 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-plugin-manifest.json",
+  "name": "reporecon",
+  "version": "0.1.0",
+  "description": "Validate whether your project idea already exists on GitHub before you build it.",
+  "author": {
+    "name": "Suleman Dawood",
+    "url": "https://github.com/suleman-dawood"
+  },
+  "homepage": "https://github.com/suleman-dawood/reporecon",
+  "repository": "https://github.com/suleman-dawood/reporecon",
+  "license": "MIT",
+  "keywords": ["github", "prior-art", "validation", "research", "skill", "reporecon"]
+}

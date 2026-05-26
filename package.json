@@ -1,0 +1,13 @@
+{
+  "name": "reporecon",
+  "version": "0.1.0",
+  "description": "Validate whether your project idea already exists on GitHub before you build it.",
+  "license": "MIT",
+  "author": "Suleman Dawood",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/suleman-dawood/reporecon"
+  },
+  "keywords": ["claude-code", "claude-code-plugin", "github", "prior-art", "reporecon"],
+  "private": true
+}

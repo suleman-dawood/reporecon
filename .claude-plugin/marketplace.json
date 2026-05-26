@@ -1,0 +1,18 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-marketplace.json",
+  "name": "reporecon",
+  "owner": {
+    "name": "Suleman Dawood",
+    "url": "https://github.com/suleman-dawood"
+  },
+  "plugins": [
+    {
+      "name": "reporecon",
+      "source": "./",
+      "description": "Prior-art reconnaissance for GitHub project ideas. Returns a fast metadata-only verdict in ~90s.",
+      "category": "research",
+      "tags": ["github", "validation", "prior-art", "reporecon"],
+      "strict": true
+    }
+  ]
+}
