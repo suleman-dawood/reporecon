@@ -127,17 +127,73 @@
 
 ## Traceability
 
-(Populated during roadmap creation by gsd-roadmapper.)
-
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| All v1 REQ-IDs | TBD | Pending |
+| PKG-01 | Phase 1 | Pending |
+| PKG-02 | Phase 1 | Pending |
+| PKG-03 | Phase 3 | Pending |
+| PKG-04 | Phase 1 | Pending |
+| PKG-05 | Phase 3 | Pending |
+| INP-01 | Phase 1 | Pending |
+| INP-02 | Phase 1 | Pending |
+| INP-03 | Phase 1 | Pending |
+| INP-04 | Phase 1 | Pending |
+| INP-05 | Phase 1 | Pending |
+| T1-01 | Phase 1 | Pending |
+| T1-02 | Phase 1 | Pending |
+| T1-03 | Phase 1 | Pending |
+| T1-04 | Phase 1 | Pending |
+| T1-05 | Phase 1 | Pending |
+| T1-06 | Phase 1 | Pending |
+| T1-07 | Phase 1 | Pending |
+| T1-08 | Phase 1 | Pending |
+| T1-09 | Phase 1 | Pending |
+| T2-01 | Phase 2 | Pending |
+| T2-02 | Phase 2 | Pending |
+| T2-03 | Phase 2 | Pending |
+| T2-04 | Phase 2 | Pending |
+| T2-05 | Phase 2 | Pending |
+| T2-06 | Phase 2 | Pending |
+| T2-07 | Phase 2 | Pending |
+| T2-08 | Phase 2 | Pending |
+| T2-09 | Phase 2 | Pending |
+| T2-10 | Phase 2 | Pending |
+| JDG-01 | Phase 1 | Pending |
+| JDG-02 | Phase 1 | Pending |
+| JDG-03 | Phase 1 | Pending |
+| JDG-04 | Phase 2 | Pending |
+| JDG-05 | Phase 1 | Pending |
+| JDG-06 | Phase 1 | Pending |
+| JDG-07 | Phase 1 | Pending |
+| HEUR-01 | Phase 2 | Pending |
+| HEUR-02 | Phase 1 | Pending |
+| HEUR-03 | Phase 1 | Pending |
+| HEUR-04 | Phase 1 | Pending |
+| RPT-01 | Phase 1 | Pending |
+| RPT-02 | Phase 1 | Pending |
+| RPT-03 | Phase 2 | Pending |
+| RPT-04 | Phase 1 | Pending |
+| SCR-01 | Phase 1 | Pending |
+| SCR-02 | Phase 1 | Pending |
+| SCR-03 | Phase 2 | Pending |
+| SCR-04 | Phase 2 | Pending |
+| SCR-05 | Phase 1 | Pending |
+| TST-01 | Phase 1 | Pending |
+| TST-02 | Phase 1 | Pending |
+| TST-03 | Phase 2 | Pending |
+| TST-04 | Phase 2 | Pending |
+| TST-05 | Phase 3 | Pending |
 
 **Coverage:**
-- v1 requirements: 51 total
-- Mapped to phases: 0
-- Unmapped: 51 ⚠️ (to be resolved by roadmapper)
+- v1 requirements: 54 total (note: enumeration count; prior "51" was approximate)
+- Mapped to phases: 54
+- Unmapped: 0 ✓
+
+**By phase:**
+- Phase 1 (Tier 1 MVP): 34
+- Phase 2 (Tier 2 Deep Inspection): 17
+- Phase 3 (Polish + Marketplace): 3
 
 ---
 *Requirements defined: 2026-05-26*
-*Last updated: 2026-05-26 after initialization*
+*Traceability populated: 2026-05-26 by gsd-roadmapper*
