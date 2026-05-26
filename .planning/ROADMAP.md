@@ -27,17 +27,18 @@ Given a fuzzy project idea, RepoRecon returns a trustworthy, evidence-cited verd
   3. Every candidate URL in the report is verified live via `gh api` within the run (no hallucinated repos)
   4. Report header shows the sharpened "what / for whom / how" statement with proper nouns preserved
   5. Verdict is mechanically derived from 5-axis integer scores (not asked free-form of the LLM), and stable across 3 consecutive runs on each golden input
+**Plans:** 7 plans
 **Plans (wave-parallel):**
   - **Wave 1 (independent, disjoint files):**
-    - Plan 1.1: Plugin manifests + packaging scaffolding (`plugin.json`, `marketplace.json`, `package.json`, repo layout)
-    - Plan 1.2: `scripts/gh-search.sh` + `scripts/verify-repo.sh` (deterministic `gh api` wrappers with jq normalization, auth/rate preflight)
-    - Plan 1.3: `references/query-patterns.md` (Tier 1 5-query taxonomy) + `references/report-template.md`
-    - Plan 1.4: `references/judge-rubric.md` (5-axis integer rubric, derived-verdict table, anti-novelty framing)
-    - Plan 1.5: `scripts/staleness.sh` + `tests/golden/` fixtures (saturated/empty/ambiguous domains)
+    - [ ] `01-01-PLAN.md` — Plugin manifests + packaging scaffolding (`plugin.json`, `marketplace.json`, `package.json`, LICENSE, .gitignore, README stub, commands/reporecon.md)
+    - [ ] `01-02-PLAN.md` — `scripts/preflight.sh` + `scripts/gh-search.sh` + `scripts/verify-repo.sh` (deterministic `gh api` wrappers + 404 gate + auth/rate preflight)
+    - [ ] `01-03-PLAN.md` — `skills/reporecon/references/query-patterns.md` (5-query taxonomy + sharpening + proper-noun rule) + `references/report-template.md`
+    - [ ] `01-04-PLAN.md` — `skills/reporecon/references/judge-rubric.md` (5-axis integer rubric + mechanical derivation + anti-novelty + devil's-advocate)
+    - [ ] `01-05-PLAN.md` — `scripts/staleness.sh` + `tests/golden/*.json` (3 fixtures) + `tests/run-goldens.sh` scaffold + `.github/workflows/goldens.yml`
   - **Wave 2 (serializes on SKILL.md):**
-    - Plan 1.6: `skills/reporecon/SKILL.md` Tier 1 orchestration (sharpening → query gen → verify → judge → verdict block → report write)
+    - [ ] `01-06-PLAN.md` — `skills/reporecon/SKILL.md` Tier 1 orchestration (7-step protocol: preflight → sharpen → query gen → discover → verify → judge → emit report)
   - **Wave 3 (validation):**
-    - Plan 1.7: Golden-test iteration: tune queries, judge prompt, devil's-advocate trigger; verify <90s budget; lock stability across 3 runs
+    - [ ] `01-07-PLAN.md` — Golden-test iteration: wire run-goldens.sh, tune queries/judge/re-judge phrasing, lock band stability × 3 runs and ≤90s wall-clock
 
 ### Phase 2: Tier 2 Deep Inspection
 **Goal:** Add an opt-in deep-inspection mode that clones top candidates safely, judges equivalence with file-path evidence, applies the vapor heuristic, and writes the negative-space "your angle" section.
