@@ -24,11 +24,14 @@ a Skill's Bash invocations. Resolve a working `PLUGIN_ROOT` once and reuse it:
 ```bash
 PLUGIN_ROOT="${CLAUDE_PLUGIN_ROOT:-}"
 if [ -z "$PLUGIN_ROOT" ] || [ ! -f "$PLUGIN_ROOT/scripts/preflight.sh" ]; then
+  # Try common install paths (including versioned-cache layout used by Claude Code)
   for CAND in \
-    "$HOME/.claude/plugins/cache/reporecon/reporecon" \
-    "$HOME/.claude/plugins/reporecon" \
-    "$HOME/.claude/plugins/cache/reporecon@reporecon/reporecon" \
-    "$HOME/.config/claude/plugins/reporecon"; do
+    "$HOME"/.claude/plugins/cache/reporecon/reporecon/*/  \
+    "$HOME"/.claude/plugins/cache/reporecon/reporecon \
+    "$HOME"/.claude/plugins/cache/reporecon@reporecon/reporecon/*/ \
+    "$HOME"/.claude/plugins/reporecon \
+    "$HOME"/.config/claude/plugins/reporecon; do
+    CAND="${CAND%/}"
     if [ -f "$CAND/scripts/preflight.sh" ]; then PLUGIN_ROOT="$CAND"; break; fi
   done
 fi
