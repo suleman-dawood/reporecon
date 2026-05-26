@@ -16,6 +16,14 @@ metadata only.
 **First, print to chat:** `RepoRecon Tier 1 starting…` so the user sees the
 skill activated.
 
+> **ONE IDEA PER REPORT.** If the user passes multiple ideas in a single
+> invocation, run the full Tier 1 protocol independently for each idea and
+> write a **separate report file per idea** at
+> `./reporecon-reports/YYYY-MM-DD-<slug-per-idea>.md`. **Never combine
+> multiple ideas into a single batch report.** A consolidated chat-summary
+> table is fine; the on-disk artifacts must stay one-per-idea so they can be
+> linked, diffed, and re-run individually.
+
 ## Step -1: Resolve Plugin Root
 
 `$PLUGIN_ROOT` is set in hook environments but NOT guaranteed inside
