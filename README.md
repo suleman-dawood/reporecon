@@ -8,6 +8,15 @@
 🔴  Strong overlap — someone has likely shipped this already.
 ```
 
+## What's new in v0.2.0
+
+- **WebSearch in Tier 1.** Closed-source SaaS, YC startups, GitHub Apps, and awesome-list incumbents are now caught in the baseline run — not just the opt-in deep dive.
+- **7 query archetypes (was 5).** Added `CANONICAL-NAMES` (model-recalled incumbents) and `TOPIC-TAG` (GitHub topic-index lookup).
+- **Closed-Source / SaaS Competitors report block.** Surfaces non-GitHub competitors with evidence snippets and axis scores.
+- **Saturated-lane verdict.** A strong SaaS competitor (`axis_sum ≥ 10`) now drives 🔴 even when GitHub returns nothing.
+
+See [CHANGELOG.md](./CHANGELOG.md) for the full diff.
+
 ## Why
 
 Every developer has shipped a side project only to discover a more mature, better-named, more-starred version already lives on GitHub. The cost is real: weeks of work, a stalled launch, and the slow realization that the differentiator you imagined doesn't actually differentiate.

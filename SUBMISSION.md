@@ -4,6 +4,15 @@ Manual checklist for submitting the `reporecon` plugin to the Anthropic
 marketplace (`claude-plugins-official`). Not automated — work through this
 top-to-bottom before opening the marketplace PR.
 
+## Pre-release notes for v0.2.0
+
+This submission targets **v0.2.0**. See [CHANGELOG.md](./CHANGELOG.md) for the
+full diff against v0.1.0 — headline changes are the mandatory Tier 1 WebSearch
+cross-check (Step 3.5), two new query archetypes (`CANONICAL-NAMES`,
+`TOPIC-TAG`), the Closed-Source / SaaS Competitors report block, and the
+saturated-lane verdict rule. Reviewers should read the CHANGELOG before
+exercising the smoke test below.
+
 ## Pre-flight
 
 - [ ] All Phase 1 + Phase 2 + Phase 3 commits merged to `main`
@@ -41,9 +50,9 @@ top-to-bottom before opening the marketplace PR.
 
 - [ ] Update this `SUBMISSION.md` with the PR URL (replace this line):
       `Marketplace PR: <URL>`
-- [ ] Tag a `v0.1.0` release on this repo:
-      `git tag v0.1.0 && git push --tags`
-- [ ] Create a GitHub Release for `v0.1.0` with the same body as the
+- [ ] Tag a `v0.2.0` release on this repo:
+      `git tag v0.2.0 && git push --tags`
+- [ ] Create a GitHub Release for `v0.2.0` with the same body as the
       marketplace PR description
 - [ ] Verify install in a fresh Claude Code env: from a clean machine,
       `/plugin install reporecon` from the Anthropic marketplace and confirm
