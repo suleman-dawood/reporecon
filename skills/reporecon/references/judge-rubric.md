@@ -173,6 +173,28 @@ stands and the report notes that a devil's-advocate pass was run.
   cannot pin temperature programmatically, the literal line "Temperature 0.
   Respond deterministically." in the prompt body is the fallback.
 
+## Non-GitHub Competitor Rule (v0.2.0)
+
+Web-cross-check feeds candidates tagged `provenance: tier1-web-saas` (closed-source SaaS, YC company landing pages, etc.) into the candidate pool. These have URLs but no source code to clone.
+
+### Scoring
+Score each non-GitHub candidate on the **same 5 axes** (core_function, target_audience, scope, approach, activity) using ONLY the WebSearch evidence snippet + the candidate's landing-page metadata. Pass the candidate's name + evidence_snippet + source_query into the judge prompt. The same anti-novelty framing applies.
+
+### Verdict cap (Tier 1)
+- Without clone evidence, a non-GitHub candidate's verdict label is capped at `WORTH_INSPECTING` (Tier 1 cap, same as gh candidates).
+- In Tier 2: cap stays at `SUPERFICIAL_MATCH` for non-GitHub candidates because file-path evidence is unobtainable (no clone). This honors JDG-04: PARTIAL_OVERLAP+ requires file paths.
+
+### Overall verdict aggregation (revised)
+The overall run verdict considers BOTH gh-pool and web-pool candidates:
+
+- Any candidate (gh OR web) at `LIKELY_MATCH` → 🔴
+- Any non-GitHub candidate with `axis_sum ≥ 10` (out of 15) → 🔴 even without a `LIKELY_MATCH` label (signals "the SaaS exists and matches the idea closely enough that the user should know"). Surface this in the report header with the note `(saturated lane — closed-source SaaS exists)`.
+- Any `WORTH_INSPECTING` in either pool → 🟡
+- All `UNRELATED` in both pools → 🟢
+
+### Why "axis_sum ≥ 10" not a label
+A non-GitHub candidate can't earn `LIKELY_MATCH` directly (cap rule above). The aggregation rule lets a strong SaaS signal still drive the overall verdict without lying about the per-candidate label.
+
 ## Tier 2 5-Level Verdict Derivation
 
 Tier 2 produces the full 5-level verdict taxonomy. The Tier 1 cap (above) still
