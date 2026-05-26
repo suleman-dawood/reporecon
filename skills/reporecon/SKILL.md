@@ -13,16 +13,49 @@ metadata only.
 > **HARD RULE:** No URL appears in any output without a `verify-repo.sh` 200
 > OK timestamped within this run. 404s drop the candidate entirely.
 
+**First, print to chat:** `RepoRecon Tier 1 starting…` so the user sees the
+skill activated.
+
+## Step -1: Resolve Plugin Root
+
+`$PLUGIN_ROOT` is set in hook environments but NOT guaranteed inside
+a Skill's Bash invocations. Resolve a working `PLUGIN_ROOT` once and reuse it:
+
+```bash
+PLUGIN_ROOT="${CLAUDE_PLUGIN_ROOT:-}"
+if [ -z "$PLUGIN_ROOT" ] || [ ! -f "$PLUGIN_ROOT/scripts/preflight.sh" ]; then
+  for CAND in \
+    "$HOME/.claude/plugins/cache/reporecon/reporecon" \
+    "$HOME/.claude/plugins/reporecon" \
+    "$HOME/.claude/plugins/cache/reporecon@reporecon/reporecon" \
+    "$HOME/.config/claude/plugins/reporecon"; do
+    if [ -f "$CAND/scripts/preflight.sh" ]; then PLUGIN_ROOT="$CAND"; break; fi
+  done
+fi
+if [ -z "$PLUGIN_ROOT" ] || [ ! -f "$PLUGIN_ROOT/scripts/preflight.sh" ]; then
+  FOUND=$(find "$HOME/.claude" "$HOME/.config/claude" -maxdepth 6 -type f -name preflight.sh -path '*reporecon*' 2>/dev/null | head -1)
+  [ -n "$FOUND" ] && PLUGIN_ROOT="$(dirname "$(dirname "$FOUND")")"
+fi
+if [ -z "$PLUGIN_ROOT" ] || [ ! -f "$PLUGIN_ROOT/scripts/preflight.sh" ]; then
+  echo "ERROR: cannot locate reporecon plugin root (looked in standard install paths)." >&2
+  echo "Set CLAUDE_PLUGIN_ROOT manually or reinstall via /plugin install reporecon@reporecon." >&2
+  exit 2
+fi
+echo "PLUGIN_ROOT=$PLUGIN_ROOT"
+```
+
+Export `PLUGIN_ROOT` for all subsequent steps. Print it to chat for diagnostics.
+
 ## Step 0: Preflight
 
-Run `bash ${CLAUDE_PLUGIN_ROOT}/scripts/preflight.sh`. If exit non-zero, print
+Run `bash "$PLUGIN_ROOT/scripts/preflight.sh"`. If exit non-zero, print
 its stderr verbatim and STOP. On success parse the JSON
 `{core_remaining, search_remaining}` and keep it as `RATE_BEFORE` for the
 report header.
 
 ## Step 1: Sharpen the Idea
 
-Read `${CLAUDE_PLUGIN_ROOT}/skills/reporecon/references/query-patterns.md`
+Read `$PLUGIN_ROOT/skills/reporecon/references/query-patterns.md`
 sections "Idea Sharpening" and "Proper-Noun Preservation Rule". ONE LLM call,
 temperature **0**. Emit the exact Sharpening Output Schema JSON
 (`sharpened_sentence`, `preserved_terms`, `differentiator_keywords`). If any
@@ -37,7 +70,7 @@ at least one preserved term verbatim. Output: JSON array of 5 strings.
 
 ## Step 3: Discover
 
-For each query: `bash ${CLAUDE_PLUGIN_ROOT}/scripts/gh-search.sh "<query>"`.
+For each query: `bash $PLUGIN_ROOT/scripts/gh-search.sh "<query>"`.
 Sleep 300ms between calls (PITFALLS.md #6 secondary-rate-limit guard). Collect
 5 JSON arrays.
 
@@ -51,13 +84,13 @@ Apply the "Dedup & Ranking" rule from `query-patterns.md`: collect every
 
 For each of the 5 ranked candidates, run in parallel (`xargs -P 5` or
 background jobs + `wait`):
-`bash ${CLAUDE_PLUGIN_ROOT}/scripts/verify-repo.sh "<owner/repo>"`.
+`bash $PLUGIN_ROOT/scripts/verify-repo.sh "<owner/repo>"`.
 Drop any candidate whose script exits non-zero (404 — HARD RULE). Collect
 verified metadata JSON (including `verified_at` ISO timestamp).
 
 ## Step 6: Judge per candidate
 
-Read `${CLAUDE_PLUGIN_ROOT}/skills/reporecon/references/judge-rubric.md`. For
+Read `$PLUGIN_ROOT/skills/reporecon/references/judge-rubric.md`. For
 EACH verified candidate, issue **one judge call** (no batching — PITFALLS.md
 #1) at temperature 0. Pass only the sharpened sentence + preserved terms +
 candidate metadata JSON + first 3000 chars of README (PITFALLS.md #2: strip
@@ -69,7 +102,7 @@ from the threshold table in `judge-rubric.md` — do NOT let the LLM emit the
 verdict label. Allowed Tier 1 labels: `LIKELY_MATCH`, `WORTH_INSPECTING`,
 `UNRELATED`. Never emit Phase 2 labels.
 
-Also run `bash ${CLAUDE_PLUGIN_ROOT}/scripts/staleness.sh "<verified-json>"`
+Also run `bash $PLUGIN_ROOT/scripts/staleness.sh "<verified-json>"`
 per candidate. Per HEUR-03 badges never auto-downgrade the verdict.
 
 Compute the **overall verdict** per the "Overall Run Verdict" section of
@@ -84,7 +117,7 @@ candidates (highest `axis_sum` first) with the REVERSE FRAMING prompt from
 
 ## Step 7: Emit Report
 
-Read `${CLAUDE_PLUGIN_ROOT}/skills/reporecon/references/report-template.md`.
+Read `$PLUGIN_ROOT/skills/reporecon/references/report-template.md`.
 Derive the slug per the "Slug Derivation Rule" (with collision suffix). Then
 `mkdir -p ./reporecon-reports` and re-run preflight.sh to capture RATE_AFTER.
 
@@ -126,14 +159,14 @@ non-fatal — log and continue.
 
 ## Step T2-B: Discovery Expansion (gh api)
 
-Read `${CLAUDE_PLUGIN_ROOT}/skills/reporecon/references/tier2-protocol.md`
+Read `$PLUGIN_ROOT/skills/reporecon/references/tier2-protocol.md`
 sections "Discovery Expansion" and "Dedupe Rule". Generate **10 queries in ONE
 LLM call** (temperature 0) per the 10 archetypes in tier2-protocol.md
 (DOMAIN-NARROW, TOPIC-TAG, DESCRIPTION-MATCH, README-MATCH, LICENSE-FILTER,
 SIZE-BOUND, FORK-EXCLUDED, RECENT-ACTIVITY, STAR-BOUND, ORG-AUTHOR). Each query
 MUST include at least one preserved term verbatim.
 
-For each query: `bash ${CLAUDE_PLUGIN_ROOT}/scripts/gh-search.sh "<query>"`.
+For each query: `bash $PLUGIN_ROOT/scripts/gh-search.sh "<query>"`.
 Sleep 400ms between calls. Collect 10 JSON arrays. Track gh rate budget delta
 (`gh api rate_limit` before/after).
 
@@ -145,7 +178,7 @@ direct repo links. Invoke the `WebSearch` tool per query. Extract every
 `github.com/<owner>/<repo>` URL pattern from results. For each extracted URL:
 
 ```
-bash ${CLAUDE_PLUGIN_ROOT}/scripts/verify-repo.sh "<owner/repo>"
+bash $PLUGIN_ROOT/scripts/verify-repo.sh "<owner/repo>"
 ```
 
 Discard any candidate whose script exits non-zero (404 — HARD RULE per D2-04,
@@ -172,7 +205,7 @@ temperature 0, returns boolean per candidate). Cap at **8 candidates**.
 For each selected candidate, invoke (parallel up to 3 via `xargs -P 3`):
 
 ```
-DEST=$(bash ${CLAUDE_PLUGIN_ROOT}/scripts/safe-clone.sh "<owner/repo>")
+DEST=$(bash $PLUGIN_ROOT/scripts/safe-clone.sh "<owner/repo>")
 ```
 
 Handle exit codes per D2-06: `0`=success (use `$DEST`), `11`=skip-oversize,
@@ -185,7 +218,7 @@ and run vapor-check:
 
 ```
 echo "$VERIFIED_META_FOR_THIS_CAND" > "$DEST/.reporecon-meta.json"
-bash ${CLAUDE_PLUGIN_ROOT}/scripts/vapor-check.sh "$DEST" "$DEST/.reporecon-meta.json"
+bash $PLUGIN_ROOT/scripts/vapor-check.sh "$DEST" "$DEST/.reporecon-meta.json"
 ```
 
 Capture exit code (0 = vapor) and stdout JSON
@@ -195,7 +228,7 @@ vapor.
 
 ## Step T2-F: Tier 2 Judge per Candidate
 
-Read `${CLAUDE_PLUGIN_ROOT}/skills/reporecon/references/judge-rubric.md`
+Read `$PLUGIN_ROOT/skills/reporecon/references/judge-rubric.md`
 sections "Tier 2 5-Level Verdict Derivation", "Tier 2 Evidence Rule (JDG-04
 Full)", "Tier 2 File Selection Algorithm", "Tier 2 Judge Prompt Template",
 and "Tier 2 Output Discipline".
@@ -240,7 +273,7 @@ explicitly asked for deep inspection because Tier 1 said 🟡/🔴).
 
 ## Step T2-G: Your Angle Synthesis
 
-Read `${CLAUDE_PLUGIN_ROOT}/skills/reporecon/references/report-template.md`
+Read `$PLUGIN_ROOT/skills/reporecon/references/report-template.md`
 section "Your Angle Section".
 
 Issue ONE LLM call (temperature 0) with inputs: sharpened sentence, preserved
