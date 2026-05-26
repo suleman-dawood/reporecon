@@ -8,22 +8,13 @@
 🔴  Strong overlap — someone has likely shipped this already.
 ```
 
-## What's new in v0.2.0
-
-- **WebSearch in Tier 1.** Closed-source SaaS, YC startups, GitHub Apps, and awesome-list incumbents are now caught in the baseline run — not just the opt-in deep dive.
-- **7 query archetypes (was 5).** Added `CANONICAL-NAMES` (model-recalled incumbents) and `TOPIC-TAG` (GitHub topic-index lookup).
-- **Closed-Source / SaaS Competitors report block.** Surfaces non-GitHub competitors with evidence snippets and axis scores.
-- **Saturated-lane verdict.** A strong SaaS competitor (`axis_sum ≥ 10`) now drives 🔴 even when GitHub returns nothing.
-
-See [CHANGELOG.md](./CHANGELOG.md) for the full diff.
-
 ## Why
 
 Every developer has shipped a side project only to discover a more mature, better-named, more-starred version already lives on GitHub. The cost is real: weeks of work, a stalled launch, and the slow realization that the differentiator you imagined doesn't actually differentiate.
 
 The usual tools fail in predictable ways. GitHub's own search ranks by stars and recency, not by *idea equivalence* — a one-line query rarely surfaces the canonical prior art. LLMs cheerfully hallucinate repository names that don't resolve. READMEs lie: archived repos describe themselves in the present tense, vapor projects ship 200-line READMEs over 50 lines of code, and "production-ready" usually means "the author's personal demo."
 
-RepoRecon is the structured pre-build check you'd do if you had the patience. It runs five diverse `gh api` queries from different framings, verifies every candidate is actually reachable (404 = dropped), and asks an LLM to judge each one on a fixed 5-axis rubric against metadata only — fast, cheap, no cloning. If the fast verdict is uncertain, an opt-in deep mode clones the top candidates, sanitizes the content, and produces a file-path-cited equivalence report.
+RepoRecon is the structured pre-build check you'd do if you had the patience. It runs seven diverse `gh api` queries from different framings *and* a five-query WebSearch sweep covering YC startups, GitHub Marketplace, awesome-lists, Hacker News, and Product Hunt — so closed-source SaaS and post-cutoff products don't slip through the gh-only blind spot. Every cited repository is verified (404 = dropped), and an LLM judges each candidate on a fixed 5-axis rubric against metadata only — fast, cheap, no cloning. If the fast verdict is uncertain, an opt-in deep mode clones the top candidates, sanitizes the content, and produces a file-path-cited equivalence report.
 
 ## How it works
 
@@ -32,11 +23,12 @@ RepoRecon runs in two tiers. The first is always-on and fast. The second is opt-
 ### Tier 1 — Fast verdict (~90 seconds)
 
 1. **Sharpen** the user's one-sentence idea into a preserved-term vector (proper nouns kept verbatim).
-2. **Generate 5 diverse queries** — one per archetype (literal, synonym-shifted, outcome-framed, tech-stack-framed, adjacent-domain) — in a single deterministic LLM call.
-3. **Discover** via `gh api` search; dedupe + rank by rank-sum across the five result sets.
-4. **Verify** the top 5 candidates with parallel `verify-repo.sh` calls. Any 404 drops the candidate entirely — no URL ever appears in the report without a fresh 200 OK in this run.
-5. **Judge** each verified candidate with a metadata-only LLM call (description + topics + first 3000 chars of README) against a 5-axis rubric. Verdict labels are derived *mechanically* from axis thresholds — the LLM never picks the label.
-6. **Emit** a Markdown report under `./reporecon-reports/YYYY-MM-DD-<slug>.md` plus a ≤10-line verdict block to chat: 🟢 (no close match), 🟡 (worth inspecting), or 🔴 (likely match).
+2. **Generate 7 diverse queries** — one per archetype (literal, synonym-shifted, outcome-framed, tech-stack-framed, adjacent-domain, canonical-names, topic-tag) — in a single deterministic LLM call.
+3. **Discover** via `gh api search/repositories` (per_page=30 for recall); dedupe + rank by rank-sum across the seven result sets.
+4. **Web cross-check** — five mandatory `WebSearch` queries covering canonical products, YC + funded startups, awesome-lists, GitHub Marketplace / Apps, and Hacker News / Product Hunt. GitHub URLs returned by WebSearch get merged into the candidate pool (provenance: `tier1-web`); non-GitHub URLs land in a separate Closed-Source / SaaS pool. Closes the gh-only blind spot.
+5. **Verify** every cited GitHub candidate with parallel `verify-repo.sh` calls. Any 404 drops the candidate entirely — no URL ever appears in the report without a fresh 200 OK in this run.
+6. **Judge** each candidate (GitHub + SaaS pools) with a metadata-only LLM call against a 5-axis rubric. Verdict labels are derived *mechanically* from axis thresholds — the LLM never picks the label. Non-GitHub candidates are capped at `WORTH_INSPECTING` in Tier 1 (no clone evidence), but a strong SaaS competitor (`axis_sum ≥ 10`) can still drive the overall verdict to 🔴 via the saturated-lane rule.
+7. **Emit** a Markdown report under `./reporecon-reports/YYYY-MM-DD-<slug>.md` plus a ≤10-line verdict block to chat: 🟢 (no close match), 🟡 (worth inspecting), or 🔴 (likely match).
 
 If the Tier 1 verdict is 🟢, you're done.
 
