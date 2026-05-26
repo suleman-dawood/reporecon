@@ -1,17 +1,7 @@
 ---
 name: reporecon
-description: |
-  Validate whether a project idea already exists on GitHub before you build it.
-  Triggers on /reporecon <idea>, "is there already a tool that does X",
-  "validate my idea", "does this exist on github". Returns a 🟢/🟡/🔴 verdict
-  in ~90 seconds using gh api metadata only. Tier 2 opt-in extension clones
-  top candidates and judges equivalence with file-path evidence (~10 min).
-allowed-tools:
-  - Bash
-  - Read
-  - WebSearch
-  - Write
-effort: medium
+description: Validate whether a project idea already exists on GitHub before you build it. Use when the user describes a project idea and asks if it already exists, says "validate my idea", "is there already a tool that does X", "does this exist on github", "prior art check", or invokes /reporecon. Returns a 🟢/🟡/🔴 verdict in ~90 seconds using gh api metadata only; Tier 2 opt-in extension clones top candidates and judges equivalence with file-path evidence (~10 min).
+allowed-tools: Bash, Read, WebSearch, Write
 ---
 
 # RepoRecon Tier 1 Protocol (≤10 gh api calls, ≤90s)
