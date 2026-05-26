@@ -1,15 +1,31 @@
+# Tier 2 real-network tests cost gh API quota and take ~30 min.
+# Default push/PR runs: stub only (no network).
+# Manual / weekly: full real-network suite (RUN_REAL=1).
+# See .planning/phases/02-tier-2-deep-inspection/02-CONTEXT.md D2-23.
 name: goldens
 on:
   workflow_dispatch:
+    inputs:
+      run_real:
+        description: 'Run Tier 2 real-network suite (RUN_REAL=1)'
+        required: false
+        default: 'false'
   pull_request:
     paths:
       - 'skills/reporecon/**'
       - 'scripts/**'
       - 'tests/**'
       - '.github/workflows/goldens.yml'
+  schedule:
+    # Weekly Tier 2 real-network suite — Sundays at 06:00 UTC (D2-23).
+    - cron: '0 6 * * 0'
 jobs:
-  run:
+  # Tier 1 + Tier 2 stub mode — runs on every PR (no network, no gh quota burn).
+  goldens-stub:
+    name: goldens (stub mode)
+    if: github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     env:
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     steps:
@@ -25,6 +41,34 @@ jobs:
           sudo apt-get update && sudo apt-get install -y gh
           gh --version
           gh auth status
-      - name: Run goldens (best-effort — claude headless required for full pass)
+      - name: Run goldens (Tier 1 + Tier 2 stub — claude headless required for Tier 1 full pass)
+        continue-on-error: true
+        env:
+          RUN_REAL: '0'
+        run: bash tests/run-goldens.sh
+
+  # Tier 2 real-network suite — manual dispatch or weekly cron (D2-23).
+  tier2-real-network:
+    name: tier2-real-network (RUN_REAL=1)
+    if: (github.event_name == 'workflow_dispatch' && github.event.inputs.run_real == 'true') || github.event_name == 'schedule'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      RUN_REAL: '1'
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install jq
+        run: sudo apt-get update && sudo apt-get install -y jq
+      - name: Install gh (>=2.55)
+        run: |
+          type -p curl >/dev/null || sudo apt-get install -y curl
+          curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | sudo dd of=/usr/share/keyrings/githubcli-archive-keyring.gpg
+          sudo chmod go+r /usr/share/keyrings/githubcli-archive-keyring.gpg
+          echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" | sudo tee /etc/apt/sources.list.d/github-cli.list
+          sudo apt-get update && sudo apt-get install -y gh
+          gh --version
+          gh auth status
+      - name: Run goldens (Tier 2 real-network, RUN_REAL=1)
         continue-on-error: true
         run: bash tests/run-goldens.sh
