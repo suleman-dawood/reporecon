@@ -1,0 +1,6 @@
+{
+  "idea": "A CLI tool for managing personal todo lists in markdown files with tags and due dates",
+  "expected_verdict_band": "🔴",
+  "scenario": "saturated",
+  "notes": "Todo CLIs are a famously saturated GitHub niche. Should trigger at least one LIKELY_MATCH against repos like sindresorhus/todomvc-app-css, todotxt/todo.txt-cli, etc."
+}
