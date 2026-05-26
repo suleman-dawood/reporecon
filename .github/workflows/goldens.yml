@@ -1,0 +1,26 @@
+name: goldens
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install jq
+        run: sudo apt-get update && sudo apt-get install -y jq
+      - name: Install gh (>=2.55)
+        run: |
+          type -p curl >/dev/null || sudo apt-get install -y curl
+          curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | sudo dd of=/usr/share/keyrings/githubcli-archive-keyring.gpg
+          sudo chmod go+r /usr/share/keyrings/githubcli-archive-keyring.gpg
+          echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" | sudo tee /etc/apt/sources.list.d/github-cli.list
+          sudo apt-get update && sudo apt-get install -y gh
+          gh --version
+      - name: Authenticate gh
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: echo "$GH_TOKEN" | gh auth login --with-token
+      - name: Run goldens
+        run: bash tests/run-goldens.sh
