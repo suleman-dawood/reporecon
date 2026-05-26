@@ -309,12 +309,18 @@ Read `references/report-template.md` sections "Tier 2 Markdown Template
 (Extension)", "Tier 2 Per-Candidate Block", "Your Angle Section", and "Tier 2
 Completed Footer".
 
-Derive the slug per the Phase 1 "Slug Derivation Rule". If a Tier 1 report
-file already exists at `./reporecon-reports/YYYY-MM-DD-<slug>.md`, append the
-Tier 2 sections to it in place (do NOT create a separate Tier 2 file — the
-Tier 1 + Tier 2 report is one artifact per run). If no Tier 1 report exists
-(edge case: user opted into Tier 2 with no prior Tier 1 in this session),
-create a new report with both sections.
+**Per-idea append rule (binding):** Tier 2 ALWAYS appends to the **per-idea**
+Tier 1 report — `./reporecon-reports/YYYY-MM-DD-<slug-of-this-idea>.md` —
+where `<slug-of-this-idea>` is derived from THIS idea's sharpened sentence,
+not any aggregate / batch slug. When the user opts into Tier 2 on multiple
+ideas, locate each idea's own report file and append the Tier 2 sections to
+each one independently. **Never append Tier 2 output to a consolidated batch
+report — there should not be a batch report on disk in the first place
+(see the ONE IDEA PER REPORT rule at the top of SKILL.md).**
+
+If no per-idea Tier 1 report exists for an idea (edge case: user opted into
+Tier 2 with no prior Tier 1 in this session), create a new report with both
+sections.
 
 Substitute every `{{TIER2_*}}` and `{{ANGLE_*}}` and `{{CAND_PROVENANCE}}` /
 `{{CAND_FILE_PATHS}}` / `{{CAND_VAPOR_TRANSPARENCY_SUFFIX}}` placeholder. Use
