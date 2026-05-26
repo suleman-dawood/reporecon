@@ -72,24 +72,66 @@ temperature **0**. Emit the exact Sharpening Output Schema JSON
 (`sharpened_sentence`, `preserved_terms`, `differentiator_keywords`). If any
 preserved term is dropped, re-prompt once with the term list re-injected.
 
-## Step 2: Generate 5 Queries
+## Step 2: Generate 7 Queries
 
 Using the "Query Archetypes" section of `query-patterns.md`, generate exactly
-**5 queries in ONE LLM call** — one per archetype (LITERAL, SYNONYM-SHIFTED,
-OUTCOME-FRAMED, TECH-STACK-FRAMED, ADJACENT-DOMAIN). Each query MUST contain
-at least one preserved term verbatim. Output: JSON array of 5 strings.
+**7 queries in ONE LLM call** — one per archetype (LITERAL, SYNONYM-SHIFTED,
+OUTCOME-FRAMED, TECH-STACK-FRAMED, ADJACENT-DOMAIN, CANONICAL-NAMES,
+TOPIC-TAG). Each query MUST contain at least one preserved term verbatim,
+EXCEPT the TOPIC-TAG archetype which is tags-only by construction.
+
+Note: **CANONICAL-NAMES** is cutoff-bound — it catches only incumbents the
+model already knows by name; recent products may be missed (web cross-check
+in Step 3.5 backstops this). **TOPIC-TAG** queries the GitHub topic index
+directly, bypassing keyword ranking.
+
+Output: JSON array of 7 strings.
 
 ## Step 3: Discover
 
 For each query: `bash $PLUGIN_ROOT/scripts/gh-search.sh "<query>"`.
-Sleep 300ms between calls (PITFALLS.md #6 secondary-rate-limit guard). Collect
-5 JSON arrays.
+Sleep 300ms between calls (PITFALLS.md #6 secondary-rate-limit guard). The
+loop runs **7 times** (one per archetype). Collect 7 JSON arrays.
+
+## Step 3.5: Web Cross-Check (Tier 1 baseline, MANDATORY)
+
+Read `$PLUGIN_ROOT/skills/reporecon/references/web-cross-check.md` for the full
+protocol. Generate **5 WebSearch queries in ONE LLM call** (temperature 0)
+following the 5 required search archetypes (canonical-product, YC+funded,
+awesome-list, GitHub-Marketplace+Apps, HN+Product-Hunt). Each query must use at
+least one preserved term verbatim.
+
+Invoke the `WebSearch` tool per query (5 calls total per run — DO NOT exceed
+this cap, per `web-cross-check.md`).
+
+For each result, build a `web_candidate` JSON per the schema in
+`web-cross-check.md`. Apply the filtering rules (keep only results with a
+preserved term, dedupe by canonical name).
+
+For each `web_candidate.url` that is `github.com/<owner>/<repo>`:
+- Run `bash $PLUGIN_ROOT/scripts/verify-repo.sh "<owner/repo>"`.
+- On 200 OK: tag `provenance=tier1-web` and MERGE into the gh-candidate pool
+  before Step 4 dedup.
+- On 404: drop entirely (HARD RULE).
+
+For each `web_candidate.url` that is NOT github.com:
+- Tag `provenance=tier1-web-saas`. Keep in a SEPARATE pool — these go in the
+  Closed-Source / SaaS Competitors report block, not the regular Candidates
+  block.
+- Do not run verify-repo.sh on non-GitHub URLs.
+
+Skipping this step reintroduces the v0.1.0 blind spot (closed-source SaaS,
+YC startups, GitHub Apps). It is NOT optional.
 
 ## Step 4: Dedup + Rank
 
-Apply the "Dedup & Ranking" rule from `query-patterns.md`: collect every
+Apply the "Dedup & Ranking" rule from `query-patterns.md` to the **MERGED
+pool** (gh-pool + tier1-web GitHub candidates from Step 3.5): collect every
 `full_name`, compute rank-sum (missing-from-query penalty = 10), take the top
 5 by lowest rank-sum; ties → stars desc, then `full_name` asc.
+
+The web-pool (`tier1-web-saas`) is judged separately via the rules in Step 6
+and does NOT participate in this dedup.
 
 ## Step 5: Verify
 
@@ -101,24 +143,43 @@ verified metadata JSON (including `verified_at` ISO timestamp).
 
 ## Step 6: Judge per candidate
 
-Read `$PLUGIN_ROOT/skills/reporecon/references/judge-rubric.md`. For
-EACH verified candidate, issue **one judge call** (no batching — PITFALLS.md
-#1) at temperature 0. Pass only the sharpened sentence + preserved terms +
-candidate metadata JSON + first 3000 chars of README (PITFALLS.md #2: strip
-the user's original framing):
+Read `$PLUGIN_ROOT/skills/reporecon/references/judge-rubric.md` (including
+the **Non-GitHub Competitor Rule (v0.2.0)** section). Now there are two pools
+to judge:
+
+**GitHub-pool** (provenance ∈ {`tier1-gh`, `tier1-web`}): For EACH verified
+candidate, issue **one judge call** (no batching — PITFALLS.md #1) at
+temperature 0. Pass only the sharpened sentence + preserved terms + candidate
+metadata JSON + first 3000 chars of README (PITFALLS.md #2: strip the user's
+original framing):
 `gh api "repos/{owner}/{repo}/readme" --jq .content | base64 -d | head -c 3000`.
 
-Collect `axis_scores` + `rationale`. **Derive `candidate_verdict` mechanically**
-from the threshold table in `judge-rubric.md` — do NOT let the LLM emit the
-verdict label. Allowed Tier 1 labels: `LIKELY_MATCH`, `WORTH_INSPECTING`,
-`UNRELATED`. Never emit Phase 2 labels.
+**SaaS-pool** (provenance = `tier1-web-saas`): For EACH non-GitHub candidate,
+issue one judge call at temperature 0. Pass sharpened sentence + preserved
+terms + candidate `name` + `evidence_snippet` + `source_query`. **No README
+content — there is no source code.** Use the same 5-axis rubric. Per the
+rubric's Non-GitHub Competitor Rule, label is **capped at
+`WORTH_INSPECTING`** at Tier 1 (cannot earn `LIKELY_MATCH` without clone
+evidence).
 
-Also run `bash $PLUGIN_ROOT/scripts/staleness.sh "<verified-json>"`
-per candidate. Per HEUR-03 badges never auto-downgrade the verdict.
+Collect `axis_scores` + `rationale` per candidate. **Derive
+`candidate_verdict` mechanically** from the threshold table in
+`judge-rubric.md` — do NOT let the LLM emit the verdict label. Allowed Tier 1
+labels: `LIKELY_MATCH`, `WORTH_INSPECTING`, `UNRELATED`. Never emit Phase 2
+labels.
 
-Compute the **overall verdict** per the "Overall Run Verdict" section of
-`judge-rubric.md`: any `LIKELY_MATCH` → 🔴; only `WORTH_INSPECTING` → 🟡; all
-`UNRELATED` → 🟢.
+Also run `bash $PLUGIN_ROOT/scripts/staleness.sh "<verified-json>"` per
+GitHub-pool candidate (SaaS-pool candidates have no `pushed_at` — skip).
+Per HEUR-03 badges never auto-downgrade the verdict.
+
+Compute the **overall verdict** per the Non-GitHub Competitor Rule's
+aggregation table in `judge-rubric.md`:
+- Any GitHub-pool `LIKELY_MATCH` → 🔴
+- Any SaaS-pool candidate with `axis_sum ≥ 10` → 🔴 with the
+  `(saturated lane — closed-source SaaS exists)` note attached to the report
+  header
+- Any `WORTH_INSPECTING` in either pool (and no 🔴 trigger above) → 🟡
+- All `UNRELATED` everywhere → 🟢
 
 ### Devil's-Advocate Re-Judge
 
@@ -132,17 +193,33 @@ Read `$PLUGIN_ROOT/skills/reporecon/references/report-template.md`.
 Derive the slug per the "Slug Derivation Rule" (with collision suffix). Then
 `mkdir -p ./reporecon-reports` and re-run preflight.sh to capture RATE_AFTER.
 
-Substitute every `{{PLACEHOLDER}}`. Each candidate block MUST include
-`verified at {CAND_VERIFIED_AT}`. Use the **Tier 1 → Tier 2 Opt-In Footer**
-from `report-template.md` whenever the overall verdict is 🟡 or 🔴; omit the
-opt-in footer when the verdict is 🟢. Write via the `Write` tool to
+Substitute every `{{PLACEHOLDER}}`. Each GitHub-pool candidate block MUST
+include `verified at {CAND_VERIFIED_AT}`.
+
+**SaaS-pool emission:** Build the `{{SAAS_COMPETITORS_BLOCK}}` by
+concatenating one **Closed-Source / SaaS Candidate Block** (per
+`report-template.md`) for each `tier1-web-saas` candidate. Insert this block
+as a "Closed-Source / SaaS Competitors" section between `## Candidates` and
+`## What's Next?`. If no SaaS candidates exist, OMIT the entire section
+(do not emit an empty placeholder).
+
+**Saturated-lane header:** If the saturated-lane trigger fired in Step 6
+(any SaaS candidate with `axis_sum ≥ 10`), the `{{VERDICT_BADGE}}` label
+substitutes to `🔴 "This exists (saturated lane — closed-source SaaS exists)"`
+per `report-template.md` "Verdict Badge Rules".
+
+Use the **Tier 1 → Tier 2 Opt-In Footer** from `report-template.md` whenever
+the overall verdict is 🟡 or 🔴; omit the opt-in footer when the verdict is
+🟢. Write via the `Write` tool to
 `./reporecon-reports/YYYY-MM-DD-<slug>.md`; never overwrite.
 
 ## Step 8: Verdict block to chat
 
 ≤10 lines: overall badge + label, sharpened sentence, top candidate
-(full_name + verdict) if any, report path. If verdict was 🟡 or 🔴, end with
-the Tier 2 opt-in prompt (e.g., "Type 'tier 2' or 'yes' to deep-inspect top
+(full_name + verdict) if any, report path. If the saturated-lane trigger
+fired, append `(saturated lane — closed-source SaaS exists: <top 1-2
+SaaS names>)` to the badge line. If verdict was 🟡 or 🔴, end with the Tier 2
+opt-in prompt (e.g., "Type 'tier 2' or 'yes' to deep-inspect top
 candidates."). If 🟢, omit any Tier 2 mention.
 
 ## Step 8.5: Tier 2 Opt-In Gate
