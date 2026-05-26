@@ -4,10 +4,12 @@ description: |
   Validate whether a project idea already exists on GitHub before you build it.
   Triggers on /reporecon <idea>, "is there already a tool that does X",
   "validate my idea", "does this exist on github". Returns a 🟢/🟡/🔴 verdict
-  in ~90 seconds using gh api metadata only (no clones, no WebSearch).
+  in ~90 seconds using gh api metadata only. Tier 2 opt-in extension clones
+  top candidates and judges equivalence with file-path evidence (~10 min).
 allowed-tools:
   - Bash
   - Read
+  - WebSearch
   - Write
 effort: medium
 ---
