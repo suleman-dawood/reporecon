@@ -88,40 +88,44 @@ Constraints:
 
 ## Query Archetypes (Step 2 of SKILL.md protocol)
 
-Given the sharpened object, the LLM generates **exactly 5 queries in one LLM
-call**, returned as a JSON array of 5 strings. Each query is:
+Given the sharpened object, the LLM generates **exactly 7 queries in one LLM
+call**, returned as a JSON array of 7 strings. Each query is:
 
 - ≤120 chars
 - Single line, no embedded newlines
-- Must contain at least one preserved term (if any exist) verbatim
-- Uses **exactly one** of the 5 archetypes below
+- Must contain at least one preserved term (if any exist) verbatim — except for
+  the TOPIC-TAG archetype, which is tags-only by construction
+- Uses **exactly one** of the 7 archetypes below
 
-The 5 archetypes are diversified so the result-set union covers literal,
-near-synonym, outcome, technical, and adjacent-domain framings of the same idea.
-This is per D-09 in `01-CONTEXT.md`.
+The 7 archetypes are diversified so the result-set union covers literal,
+near-synonym, outcome, technical, adjacent-domain, canonical-product-name, and
+topic-tag framings of the same idea. This is per D-09 in `01-CONTEXT.md`.
 
-### 1. LITERAL
+Tier 1 budgets up to **15 gh search calls** (7 queries × 1 search each, plus
+buffer for retries / pagination).
+
+### LITERAL
 
 Restate the sharpened sentence's nouns directly. No paraphrasing. This is the
 "if the repo author named it on the tin, this finds them" query.
 
 Example: `NDIS invoice validator`
 
-### 2. SYNONYM-SHIFTED
+### SYNONYM-SHIFTED
 
 Replace **one** main verb or noun with a synonym. Preserved terms remain
 unchanged.
 
 Example: `NDIS claim checker`  (validator → checker, invoice → claim)
 
-### 3. OUTCOME-FRAMED
+### OUTCOME-FRAMED
 
 Frame the user-facing outcome instead of the implementation. Answers "what does
 the user get?" rather than "what does the tool do?"
 
 Example: `NDIS billing compliance audit tool`
 
-### 4. TECH-STACK-FRAMED
+### TECH-STACK-FRAMED
 
 Add a `language:` or framework qualifier. If the sharpened sentence does not
 imply a stack, default to `language:python` (most common for CLI/data tooling on
@@ -129,13 +133,46 @@ GitHub).
 
 Example: `NDIS invoice language:python`
 
-### 5. ADJACENT-DOMAIN
+### ADJACENT-DOMAIN
 
 Take one step outward to the broader category, but still include at least one
 preserved term. This catches repos solving the same shape of problem in a
 related domain.
 
 Example: `healthcare invoice validation NDIS`
+
+### CANONICAL-NAMES
+
+Ask the model to enumerate 3–5 known product / project names in the target
+space (closed-source + open-source), then emit the query as a space-delimited
+list of those names. Example: for an idea "AI email triage for Gmail", emit
+`inbox-zero Shortwave Superhuman Ghostwriter PanzaMail`. The query bypasses
+GitHub's keyword-relevance ranking because the model is naming concrete repos
+directly.
+
+Rationale: GitHub's search/repositories ranks on token overlap; small phrasing
+shifts can drop a popular repo from the top-10. Naming products directly is the
+highest-recall query for known incumbents.
+
+If the model genuinely doesn't know any names in the space, emit the LITERAL
+archetype again with different phrasing.
+
+Example: `inbox-zero Shortwave Superhuman Ghostwriter PanzaMail`
+
+### TOPIC-TAG
+
+Emit `topic:<tag1> topic:<tag2>` (1–3 tags, no other words). Tags are GitHub
+topic identifiers, lowercase, hyphenated. Examples:
+`topic:gmail-automation topic:llm-agent`,
+`topic:ai-code-review topic:github-app`.
+
+Rationale: GitHub topics are curated by maintainers and aggregate well-tagged
+repos under shared labels. A topic query bypasses keyword matching entirely.
+
+If the model can't guess plausible topic tags, fall back to the OUTCOME-FRAMED
+archetype.
+
+Example: `topic:gmail-automation topic:llm-agent`
 
 ### Query Hygiene
 
