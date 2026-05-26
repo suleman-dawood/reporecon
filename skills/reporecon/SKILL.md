@@ -13,8 +13,8 @@ metadata only.
 > **HARD RULE:** No URL appears in any output without a `verify-repo.sh` 200
 > OK timestamped within this run. 404s drop the candidate entirely.
 
-**First, print to chat:** `RepoRecon Tier 1 starting…` so the user sees the
-skill activated.
+**First, print to chat:** `RepoRecon first search starting…` so the user sees
+the skill activated.
 
 > **ONE IDEA PER REPORT.** If the user passes multiple ideas in a single
 > invocation, run the full Tier 1 protocol independently for each idea and
@@ -93,20 +93,37 @@ For each query: `bash $PLUGIN_ROOT/scripts/gh-search.sh "<query>"`.
 Sleep 300ms between calls (PITFALLS.md #6 secondary-rate-limit guard). The
 loop runs **7 times** (one per archetype). Collect 7 JSON arrays.
 
-## Step 3.5: Web Cross-Check (Tier 1 baseline, MANDATORY)
+## Step 3.5: Web Cross-Check (first-search baseline, MANDATORY)
 
 Read `$PLUGIN_ROOT/skills/reporecon/references/web-cross-check.md` for the full
-protocol. Generate **5 WebSearch queries in ONE LLM call** (temperature 0)
-following the 5 required search archetypes (canonical-product, YC+funded,
-awesome-list, GitHub-Marketplace+Apps, HN+Product-Hunt). Each query must use at
-least one preserved term verbatim.
+protocol.
 
-Invoke the `WebSearch` tool per query (5 calls total per run — DO NOT exceed
-this cap, per `web-cross-check.md`).
+**This step is NOT optional and cannot be silently skipped.**
+Before invoking the WebSearch tool, check whether it is listed as available in
+this session. If it is NOT listed, ABORT THE ENTIRE RUN with this exact message
+to chat:
+
+```
+ERROR: web-cross-check requires the WebSearch tool, which is not enabled in this
+session. RepoRecon refuses to emit a first-search verdict without it (silent
+skip caused v0.1.0 blind-spot regressions).
+
+To proceed:
+- Run /reporecon in a session where WebSearch is available, OR
+- Enable WebSearch in your Claude Code allowed-tools for this skill.
+```
+
+Then STOP. Do not emit any verdict, do not write any report.
+
+**If WebSearch IS available:** Generate exactly 5 WebSearch queries in ONE LLM
+call (temperature 0), per the 5 required archetypes in web-cross-check.md.
+Invoke `WebSearch` per query. If a single WebSearch call returns an error
+(network, quota, etc.), retry it once with a tightened query, then ABORT THE
+RUN with an error citing the failing query — do not produce a partial-coverage
+verdict.
 
 For each result, build a `web_candidate` JSON per the schema in
-`web-cross-check.md`. Apply the filtering rules (keep only results with a
-preserved term, dedupe by canonical name).
+web-cross-check.md. Apply filtering, dedupe by canonical name.
 
 For each `web_candidate.url` that is `github.com/<owner>/<repo>`:
 - Run `bash $PLUGIN_ROOT/scripts/verify-repo.sh "<owner/repo>"`.
@@ -115,13 +132,10 @@ For each `web_candidate.url` that is `github.com/<owner>/<repo>`:
 - On 404: drop entirely (HARD RULE).
 
 For each `web_candidate.url` that is NOT github.com:
-- Tag `provenance=tier1-web-saas`. Keep in a SEPARATE pool — these go in the
-  Closed-Source / SaaS Competitors report block, not the regular Candidates
-  block.
+- Tag `provenance=tier1-web-saas`. Keep in a SEPARATE pool.
 - Do not run verify-repo.sh on non-GitHub URLs.
 
-Skipping this step reintroduces the v0.1.0 blind spot (closed-source SaaS,
-YC startups, GitHub Apps). It is NOT optional.
+Skipping this step is a HARD ERROR. Silent skip is what caused v0.1.0 misses.
 
 ## Step 4: Dedup + Rank
 
@@ -380,38 +394,43 @@ If `missing_features` is empty, set the bullet block to the literal
 `_No distinguishing features identified — your idea overlaps fully with existing candidates._`
 per D2-18.
 
-## Step 9: Emit Tier 2 Report
+## Step 9: Emit Deep-Search Report (REWRITE first-search report)
 
-Read `references/report-template.md` sections "Tier 2 Markdown Template
-(Extension)", "Tier 2 Per-Candidate Block", "Your Angle Section", and "Tier 2
-Completed Footer".
+Read `references/report-template.md` sections "Deep-Search Markdown Template
+(full file)", "Deep-Search Per-Candidate Block", "Your Angle Section", and
+"Deep-Search Completed Footer".
 
-**Per-idea append rule (binding):** Tier 2 ALWAYS appends to the **per-idea**
-Tier 1 report — `./reporecon-reports/YYYY-MM-DD-<slug-of-this-idea>.md` —
-where `<slug-of-this-idea>` is derived from THIS idea's sharpened sentence,
-not any aggregate / batch slug. When the user opts into Tier 2 on multiple
-ideas, locate each idea's own report file and append the Tier 2 sections to
-each one independently. **Never append Tier 2 output to a consolidated batch
-report — there should not be a batch report on disk in the first place
-(see the ONE IDEA PER REPORT rule at the top of SKILL.md).**
+**Rewrite, do NOT append.** Locate the per-idea first-search report at
+`./reporecon-reports/YYYY-MM-DD-<slug-of-this-idea>.md`. When deep search runs,
+generate a SINGLE coherent report that includes:
+1. The deep-search verdict banner at the top (replacing the first-search banner)
+2. Your Angle synthesis (from Step T2-G)
+3. Closed-Source / SaaS Competitors section (if any)
+4. Cloned-candidate per-block evidence (replacing first-search per-candidate
+   metadata blocks)
+5. Combined Run Metadata (consolidated rate budget across both passes)
+6. Deep-Search Completed Footer
 
-If no per-idea Tier 1 report exists for an idea (edge case: user opted into
-Tier 2 with no prior Tier 1 in this session), create a new report with both
-sections.
+Then **overwrite** the existing file in place via the `Write` tool. The
+appended-double-header layout from v0.2.0 is gone — there is ONE report per
+idea, and deep search updates it to the final state.
+
+For multi-idea deep search: locate each per-idea report by its sharpened-slug
+and rewrite each independently. Never combine multiple ideas into one report
+(this is the existing ONE IDEA PER REPORT rule from the top of SKILL.md).
+
+If no per-idea first-search report exists for an idea (edge case: user opted
+into deep search with no prior first-search in this session), create a new
+report with the full deep-search layout above.
 
 Substitute every `{{TIER2_*}}` and `{{ANGLE_*}}` and `{{CAND_PROVENANCE}}` /
-`{{CAND_FILE_PATHS}}` / `{{CAND_VAPOR_TRANSPARENCY_SUFFIX}}` placeholder. Use
-the **Tier 2 Completed Footer** literal block. Per-candidate blocks use the
-**Tier 2 Per-Candidate Block** template (NOT the Tier 1 template).
+`{{CAND_FILE_PATHS}}` / `{{CAND_VAPOR_TRANSPARENCY_SUFFIX}}` placeholder.
 
-Write via the `Write` tool. Never overwrite an existing Tier 1 + Tier 2
-combined report — apply the collision suffix rule.
-
-## Step 10: Tier 2 verdict block to chat
+## Step 10: Deep-search verdict block to chat
 
 ≤15 lines: overall badge + label, sharpened sentence, top 2 candidates
-(`full_name` + Tier 2 verdict each), Your Angle one-line summary, report
-path, rate budget consumed (Tier 2 delta).
+(`full_name` + deep-search verdict each), Your Angle one-line summary, report
+path, rate budget consumed (deep-search delta).
 
 ## Discipline
 
