@@ -3,3 +3,8 @@ reporecon-reports/
 *.swp
 .DS_Store
 node_modules/
+
+# Internal planning + agent artifacts — not part of the published plugin
+.claude/
+.planning/
+CLAUDE.md
