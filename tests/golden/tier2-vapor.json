@@ -1,0 +1,12 @@
+{
+  "name": "tier2-vapor",
+  "tier": 2,
+  "mode": "stub",
+  "fixture_dir": "tests/fixtures/planted-vapor-repo",
+  "asserts": {
+    "vapor_check_exit": 0,
+    "vapor_check_stdout_jq": ".vapor == true",
+    "expected_verdict": "VAPOR"
+  },
+  "stability_runs": 3
+}
