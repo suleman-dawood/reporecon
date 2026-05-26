@@ -1,13 +1,27 @@
 {
   "name": "reporecon",
   "version": "0.1.0",
-  "description": "Validate whether your project idea already exists on GitHub before you build it.",
+  "description": "Claude Code plugin to validate whether your GitHub project idea already exists before you build it.",
   "license": "MIT",
-  "author": "Suleman Dawood",
+  "author": "Suleman Dawood <sulemandawood123@protonmail.com>",
   "repository": {
     "type": "git",
-    "url": "https://github.com/suleman-dawood/reporecon"
+    "url": "https://github.com/suleman-dawood/reporecon.git"
   },
-  "keywords": ["claude-code", "claude-code-plugin", "github", "prior-art", "reporecon"],
+  "homepage": "https://github.com/suleman-dawood/reporecon",
+  "bugs": {
+    "url": "https://github.com/suleman-dawood/reporecon/issues"
+  },
+  "keywords": [
+    "claude-code",
+    "claude-code-plugin",
+    "claude-code-skill",
+    "github",
+    "skill",
+    "reconnaissance",
+    "prior-art",
+    "validation",
+    "reporecon"
+  ],
   "private": true
 }
