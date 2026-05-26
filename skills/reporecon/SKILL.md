@@ -125,15 +125,17 @@ Derive the slug per the "Slug Derivation Rule" (with collision suffix). Then
 `mkdir -p ./reporecon-reports` and re-run preflight.sh to capture RATE_AFTER.
 
 Substitute every `{{PLACEHOLDER}}`. Each candidate block MUST include
-`verified at {CAND_VERIFIED_AT}`. Use the exact Tier 2 footer from
-`report-template.md` — Tier 2 is disabled in Phase 1 per D-26 (*not yet
-available — coming in Phase 2*). Write via the `Write` tool to
+`verified at {CAND_VERIFIED_AT}`. Use the **Tier 1 → Tier 2 Opt-In Footer**
+from `report-template.md` whenever the overall verdict is 🟡 or 🔴; omit the
+opt-in footer when the verdict is 🟢. Write via the `Write` tool to
 `./reporecon-reports/YYYY-MM-DD-<slug>.md`; never overwrite.
 
 ## Step 8: Verdict block to chat
 
 ≤10 lines: overall badge + label, sharpened sentence, top candidate
-(full_name + verdict) if any, report path, "Tier 2 coming in Phase 2" footer.
+(full_name + verdict) if any, report path. If verdict was 🟡 or 🔴, end with
+the Tier 2 opt-in prompt (e.g., "Type 'tier 2' or 'yes' to deep-inspect top
+candidates."). If 🟢, omit any Tier 2 mention.
 
 ## Step 8.5: Tier 2 Opt-In Gate
 
