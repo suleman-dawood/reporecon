@@ -142,10 +142,14 @@ OVERALL_PASS=1
 declare -a SUMMARY_ROWS=()
 
 for f in "${fixtures[@]}"; do
+  fixture_name="$(basename "$f" .json)"
+  # Skip Tier 2 stub fixtures — handled by the Tier 2 block below.
+  case "$fixture_name" in
+    tier2-*) continue ;;
+  esac
   scenario=$(jq -r '.scenario' "$f")
   idea=$(jq -r '.idea' "$f")
   expected=$(jq -r '.expected_verdict_band' "$f")
-  fixture_name="$(basename "$f" .json)"
   csv="$RESULTS_DIR/${fixture_name}.csv"
   : > "$csv"
   echo "fixture,run,band,wall_clock,total_axis_sum" >> "$csv"
@@ -208,11 +212,158 @@ done
 echo ""
 echo "=== Goldens summary ==="
 for row in "${SUMMARY_ROWS[@]}"; do echo "  $row"; done
+
+# ============================================================
+# Tier 2 stub mode (always runs; no network)
+# Covers D2-21..D2-24 deterministic gates: TST-03 sanitization, TST-04 vapor.
+# ============================================================
+
+echo
+echo "===== Tier 2 stub-mode tests ====="
+
+T2_FAIL=0
+TOTAL_FAIL=0
+
+# Run safe-clone.sh unit tests (no network — uses stubbed gh/git)
+if [ -f "$REPO_ROOT/tests/test-safe-clone.sh" ]; then
+  if bash "$REPO_ROOT/tests/test-safe-clone.sh"; then
+    echo "PASS: test-safe-clone.sh"
+  else
+    echo "FAIL: test-safe-clone.sh"
+    T2_FAIL=$((T2_FAIL+1))
+  fi
+else
+  echo "SKIP: tests/test-safe-clone.sh not present"
+fi
+
+# Run vapor-check.sh unit tests (no network)
+if [ -f "$REPO_ROOT/tests/test-vapor-check.sh" ]; then
+  if bash "$REPO_ROOT/tests/test-vapor-check.sh"; then
+    echo "PASS: test-vapor-check.sh"
+  else
+    echo "FAIL: test-vapor-check.sh"
+    T2_FAIL=$((T2_FAIL+1))
+  fi
+else
+  echo "SKIP: tests/test-vapor-check.sh not present"
+fi
+
+# Golden: vapor heuristic on planted-vapor-repo (TST-04) — assert exit 0 across 3 runs (D2-22 stability)
+VAPOR_FIXTURE="$REPO_ROOT/tests/fixtures/planted-vapor-repo"
+if [ -d "$VAPOR_FIXTURE" ] && [ -x "$REPO_ROOT/scripts/vapor-check.sh" ]; then
+  for run in 1 2 3; do
+    if bash "$REPO_ROOT/scripts/vapor-check.sh" "$VAPOR_FIXTURE" >/dev/null 2>&1; then
+      echo "PASS: vapor-check on planted-vapor-repo (run $run)"
+    else
+      echo "FAIL: vapor-check on planted-vapor-repo (run $run) — expected exit 0"
+      T2_FAIL=$((T2_FAIL+1))
+    fi
+  done
+else
+  echo "SKIP: planted-vapor-repo or scripts/vapor-check.sh missing"
+fi
+
+# Golden: sanitization pipeline on planted-injection-readme.md (TST-03)
+# Apply the SKILL.md Step T2-F sanitization pipeline and assert:
+# - zero-width chars are stripped
+# - HTML comments are stripped
+INJECTION_FIXTURE="$REPO_ROOT/tests/fixtures/planted-injection-readme.md"
+if [ -f "$INJECTION_FIXTURE" ]; then
+  SAN_OUT=$(sed -e 's/<!--.*-->//g' \
+                -e $'s/\xE2\x80\x8B//g' -e $'s/\xE2\x80\x8C//g' \
+                -e $'s/\xE2\x80\x8D//g' -e $'s/\xEF\xBB\xBF//g' \
+                "$INJECTION_FIXTURE")
+  if printf '%s' "$SAN_OUT" | LC_ALL=C grep -q $'\xE2\x80\x8B'; then
+    echo "FAIL: sanitization left zero-width chars in output"
+    T2_FAIL=$((T2_FAIL+1))
+  else
+    echo "PASS: zero-width chars stripped"
+  fi
+  if printf '%s' "$SAN_OUT" | grep -q "<!--"; then
+    echo "FAIL: sanitization left HTML comment in output"
+    T2_FAIL=$((T2_FAIL+1))
+  else
+    echo "PASS: HTML comments stripped"
+  fi
+else
+  echo "SKIP: planted-injection-readme.md missing"
+fi
+
+echo "Tier 2 stub: $T2_FAIL failures"
+
+# ============================================================
+# Tier 2 real-network mode (gated by RUN_REAL=1)
+# Per D2-23: default invocation MUST NOT burn gh API quota.
+# ============================================================
+
+T2_REAL_FAIL=0
+if [ "${RUN_REAL:-0}" = "1" ]; then
+  echo
+  echo "===== Tier 2 real-network tests (RUN_REAL=1) ====="
+
+  if [ ! -x "$REPO_ROOT/tests/scripts/invoke-skill-tier2.sh" ]; then
+    echo "SKIP: tests/scripts/invoke-skill-tier2.sh missing — Tier 2 real-network requires the skill invocation harness"
+    T2_REAL_FAIL=0
+  else
+    # For each existing Tier 1 fixture, opt into Tier 2 and time the run.
+    # T2-10 / D2-24: total Tier 2 must complete in ≤10 minutes (600s) per fixture.
+    for fixture in "$FIXTURE_DIR"/*.json; do
+      fname=$(basename "$fixture" .json)
+      # Skip tier2-vapor / tier2-injection — they are stub-only.
+      case "$fname" in
+        tier2-*) continue ;;
+      esac
+      BANDS_FOR_FIXTURE=()
+      for run in 1 2 3; do
+        start=$(date +%s)
+        REPORT_PATH=$(bash "$REPO_ROOT/tests/scripts/invoke-skill-tier2.sh" "$fixture" 2>&1 | tail -1)
+        rc=$?
+        end=$(date +%s)
+        elapsed=$((end - start))
+        if [ $rc -ne 0 ]; then
+          echo "FAIL: $fname run $run rc=$rc"
+          T2_REAL_FAIL=$((T2_REAL_FAIL+1))
+          continue
+        fi
+        if [ $elapsed -gt 600 ]; then
+          echo "FAIL: $fname run $run took ${elapsed}s (>600s T2-10 budget)"
+          T2_REAL_FAIL=$((T2_REAL_FAIL+1))
+        else
+          echo "PASS: $fname run $run took ${elapsed}s (T2-10 budget OK)"
+        fi
+        # Capture verdict band for stability check (D2-22)
+        if [ -f "$REPORT_PATH" ]; then
+          band=$(grep -oE '🟢|🟡|🔴' "$REPORT_PATH" | head -1)
+        else
+          band="?"
+        fi
+        echo "  band: $band"
+        BANDS_FOR_FIXTURE+=("$band")
+      done
+      # Stability: all 3 runs must produce the same band
+      unique=$(printf '%s\n' "${BANDS_FOR_FIXTURE[@]}" | sort -u | wc -l)
+      if [ "$unique" -ne 1 ]; then
+        echo "FAIL: $fname stability — band unstable across 3 runs: ${BANDS_FOR_FIXTURE[*]}"
+        T2_REAL_FAIL=$((T2_REAL_FAIL+1))
+      else
+        echo "PASS: $fname stability — band stable: ${BANDS_FOR_FIXTURE[0]}"
+      fi
+    done
+  fi
+
+  echo "Tier 2 real-network: $T2_REAL_FAIL failures"
+else
+  echo
+  echo "Tier 2 real-network tests SKIPPED (set RUN_REAL=1 to enable; consumes gh quota)"
+fi
+
+TOTAL_FAIL=$((T2_FAIL + T2_REAL_FAIL))
+
 echo ""
-if (( OVERALL_PASS == 1 )); then
-  echo "RESULT: PASS (TST-02 stability + band-correctness + T1-09 90s budget all satisfied)"
+if (( OVERALL_PASS == 1 )) && (( TOTAL_FAIL == 0 )); then
+  echo "RESULT: PASS (TST-02 stability + band-correctness + T1-09 90s budget + Tier 2 gates all satisfied)"
   exit 0
 else
-  echo "RESULT: FAIL (see per-fixture FAIL lines above)" >&2
+  echo "RESULT: FAIL (Tier 1 OVERALL_PASS=$OVERALL_PASS, Tier 2 failures=$TOTAL_FAIL)" >&2
   exit 1
 fi
