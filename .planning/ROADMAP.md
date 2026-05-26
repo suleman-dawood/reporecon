@@ -50,17 +50,18 @@ Given a fuzzy project idea, RepoRecon returns a trustworthy, evidence-cited verd
   3. Safe-clone wrapper rejects repos >50MB, kills clones exceeding 60s, skips LFS, and cleans `/tmp/reporecon/` on exit/interrupt/terminate (verified by planted oversize/timeout fixtures)
   4. Cloned README/source is treated as untrusted (delimited, truncated to ~3000 chars, sanitized) — planted prompt-injection fixture does not alter the verdict
   5. Report includes a "your angle" section listing features in the user's idea absent from all inspected candidates
+**Plans:** 7 plans
 **Plans (wave-parallel):**
   - **Wave 1 (independent, disjoint files):**
-    - Plan 2.1: `scripts/safe-clone.sh` (size pre-check, `GIT_LFS_SKIP_SMUDGE=1`, `--filter=blob:none`, timeout, mktemp + trap cleanup)
-    - Plan 2.2: `scripts/vapor-check.sh` (README-claims-vs-source-files heuristic, archived/stale gates)
-    - Plan 2.3: `references/tier2-protocol.md` (WebSearch + 10 expanded `gh api` queries, dedupe, 404-verify-all-cited-URLs gate)
-    - Plan 2.4: `references/judge-rubric.md` extension — Tier 2 5-level verdict derivation + evidence-required rule
-    - Plan 2.5: `tests/fixtures/` — planted prompt-injection README + planted vapor repo
+    - [ ] `02-01-PLAN.md` — `scripts/safe-clone.sh` + test harness (size pre-check, GIT_LFS_SKIP_SMUDGE=1, --filter=blob:none, timeout, mktemp + trap cleanup)
+    - [ ] `02-02-PLAN.md` — `scripts/vapor-check.sh` + test harness (README-claims-vs-source-files heuristic, archived/stale gates)
+    - [ ] `02-03-PLAN.md` — `skills/reporecon/references/tier2-protocol.md` (WebSearch + 10 expanded gh api queries, dedupe, 404-verify gate, untrusted_content protocol)
+    - [ ] `02-04-PLAN.md` — `skills/reporecon/references/judge-rubric.md` + `report-template.md` extensions (Tier 2 5-level derivation, JDG-04 evidence rule, Your Angle section)
+    - [ ] `02-05-PLAN.md` — `tests/fixtures/` planted prompt-injection README + planted vapor repo
   - **Wave 2 (serializes on SKILL.md):**
-    - Plan 2.6: `SKILL.md` Tier 2 wiring (opt-in gate, expanded discovery, clone loop with untrusted-content sub-agent, derived verdict, negative-space synthesis)
+    - [ ] `02-06-PLAN.md` — `skills/reporecon/SKILL.md` Tier 2 wiring (opt-in gate, expanded discovery, clone loop with untrusted-content protocol, derived 5-level verdict, Your Angle synthesis)
   - **Wave 3 (validation):**
-    - Plan 2.7: Real-network golden runs; calibrate WebSearch 404 rate; tune clone budgets; verify ≤10min total
+    - [ ] `02-07-PLAN.md` — Extend `tests/run-goldens.sh` + new Tier 2 fixture goldens + CI matrix; verify ≤10min Tier 2 budget; stability ×3 runs
 
 ### Phase 3: Polish + Marketplace
 **Goal:** Ship the plugin to the Claude Code marketplace with a discoverable README, working demo, dogfooded examples, and license.
