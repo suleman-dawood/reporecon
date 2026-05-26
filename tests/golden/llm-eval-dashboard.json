@@ -1,0 +1,6 @@
+{
+  "idea": "A web dashboard for evaluating LLM prompt performance across multiple models with side-by-side comparison and historical tracking",
+  "expected_verdict_band": "🟡",
+  "scenario": "ambiguous",
+  "notes": "LLM eval is hot but fragmented — partial overlaps with PromptFoo, OpenAI Evals, but rarely all features combined. Expected WORTH_INSPECTING band."
+}

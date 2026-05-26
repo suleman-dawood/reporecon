@@ -1,0 +1,6 @@
+{
+  "idea": "An NDIS invoice validator that checks Australian disability-services billing line items against current NDIS pricing arrangements and flags non-claimable items",
+  "expected_verdict_band": "🟢",
+  "scenario": "novel",
+  "notes": "NDIS-specific compliance tooling is genuinely sparse on GitHub. Devil's-advocate re-judge should still confirm 🟢. Tests proper-noun preservation (NDIS must not be paraphrased to 'disability scheme')."
+}
