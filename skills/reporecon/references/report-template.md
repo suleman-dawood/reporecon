@@ -120,6 +120,28 @@ Staleness: {{CAND_STALENESS_BADGES}}
 - `{{CAND_RATIONALE}}` is a single sentence from the judge JSON output. No
   multi-line rationales in Tier 1.
 
+## Closed-Source / SaaS Candidate Block
+
+For each `provenance: tier1-web-saas` (or `tier2-web-saas` if Tier 2 ran), substitute this block and concatenate into a separate "Closed-Source / SaaS Competitors" section in the report (NOT mixed in with gh candidates).
+
+```markdown
+### {{CAND_NAME}} {{CAND_AXIS_BADGE}}
+
+- **URL:** {{CAND_URL}} (closed source — equivalence unverifiable beyond landing-page evidence)
+- **Category:** {{CAND_CATEGORY}} (closed-source-saas | yc-company | github-app | github-marketplace | awesome-list-entry | hn-launch | product-hunt)
+- **Evidence snippet:** {{CAND_EVIDENCE_SNIPPET}}
+- **Discovered via:** WebSearch query `{{CAND_SOURCE_QUERY}}`
+- **5-axis scores:** {{CAND_AXIS_SCORES}}
+- **Tier 1 verdict (capped):** {{CAND_TIER1_LABEL}}
+```
+
+`{{CAND_AXIS_BADGE}}` rules:
+- `axis_sum ≥ 10` → ⚠️ (signal: saturated lane)
+- `axis_sum 6-9` → 🔶
+- `axis_sum ≤ 5` → (no badge)
+
+The "Closed-Source / SaaS Competitors" section header should appear in the report BETWEEN "Candidates" (gh-verified) and "What's Next?" (Tier 2 footer). If no SaaS candidates were found, omit the entire section — do NOT emit an empty placeholder.
+
 ## Verdict Badge Rules
 
 `{{VERDICT_BADGE}}` is derived mechanically from the per-candidate verdicts
@@ -128,6 +150,7 @@ Staleness: {{CAND_STALENESS_BADGES}}
 | Condition                                            | Badge | Label              |
 | ---------------------------------------------------- | ----- | ------------------ |
 | At least one candidate is `LIKELY_MATCH`             | 🔴    | "This exists"      |
+| Any non-GitHub candidate with `axis_sum ≥ 10`        | 🔴    | "This exists (saturated lane — closed-source SaaS exists)" |
 | Any `WORTH_INSPECTING` (and no `LIKELY_MATCH`)       | 🟡    | "Some overlap"     |
 | All candidates are `UNRELATED`                       | 🟢    | "No close match"   |
 
