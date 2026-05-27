@@ -1,0 +1,19 @@
+name: tests
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - 'scripts/**'
+      - 'tests/**'
+      - '.github/workflows/tests.yml'
+jobs:
+  unit:
+    name: unit tests (offline, mocked)
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install jq
+        run: sudo apt-get update && sudo apt-get install -y jq
+      - name: Run unit tests
+        run: bash tests/run-all-tests.sh
