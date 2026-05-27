@@ -12,7 +12,41 @@
 # Recall over precision: default per_page=30 — downstream dedup + rank handles noise.
 # Topic detection: query consisting solely of `topic:<tag>` tokens bypasses the
 # `in:` qualifier and hits GitHub's topic index directly.
+#
+# Exit codes:
+#   0   success
+#   1   generic gh failure
+#   2   bad flag
+#  78   gh rate limit exhausted after retries
 set -euo pipefail
+
+# Retry gh api on secondary rate-limit / 429: backoff 5s, 10s, then fail with 78.
+gh_with_backoff() {
+  local attempt=0
+  local max_attempts=2
+  local backoff_secs=5
+  local output
+  while [ $attempt -lt $max_attempts ]; do
+    if output=$(gh api "$@" 2>&1); then
+      printf '%s\n' "$output"
+      return 0
+    fi
+    if echo "$output" | grep -qiE 'secondary rate limit|rate limit|HTTP 429'; then
+      attempt=$((attempt + 1))
+      if [ $attempt -ge $max_attempts ]; then
+        echo "ERROR: gh rate-limit hit after $max_attempts attempts" >&2
+        echo "$output" >&2
+        return 78
+      fi
+      echo "Rate-limited, sleeping ${backoff_secs}s before retry $attempt/$max_attempts" >&2
+      sleep $backoff_secs
+      backoff_secs=$((backoff_secs * 2))
+    else
+      echo "$output" >&2
+      return 1
+    fi
+  done
+}
 
 query="${1:?usage: gh-search.sh <query> [--in <fields>] [--per-page <N>]}"
 shift || true
@@ -53,7 +87,7 @@ else
   q="$query in:$in_fields"
 fi
 
-gh api -X GET search/repositories \
+gh_with_backoff -X GET search/repositories \
   -f q="$q" \
   -f sort=stars \
   -f order=desc \
