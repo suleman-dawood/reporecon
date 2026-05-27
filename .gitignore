@@ -1,5 +1,5 @@
-reporecon-reports/
-/tmp/reporecon/
+githubpill-reports/
+/tmp/githubpill/
 
 # Editor + OS junk
 *.swp
