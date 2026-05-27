@@ -1,8 +1,25 @@
 reporecon-reports/
 /tmp/reporecon/
+
+# Editor + OS junk
 *.swp
+*.swo
+*~
 .DS_Store
+Thumbs.db
+.idea/
+.vscode/
+
+# Secrets — never commit
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# Misc
 node_modules/
+*.log
 
 # Internal planning + agent artifacts — not part of the published plugin
 .claude/
