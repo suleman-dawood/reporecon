@@ -2,7 +2,7 @@
 set -euo pipefail
 
 # install-validation.sh
-# Simulates a fresh Claude Code install check for the reporecon plugin.
+# Simulates a fresh Claude Code install check for the githubpill plugin.
 # Run from repo root. Exits 0 if all structural checks pass; 1 otherwise.
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -17,11 +17,11 @@ REQUIRED_FILES=(
   ".claude-plugin/plugin.json"
   ".claude-plugin/marketplace.json"
   "package.json"
-  "skills/reporecon/SKILL.md"
-  "skills/reporecon/references/query-patterns.md"
-  "skills/reporecon/references/judge-rubric.md"
-  "skills/reporecon/references/report-template.md"
-  "skills/reporecon/references/deep-search-protocol.md"
+  "skills/githubpill/SKILL.md"
+  "skills/githubpill/references/query-patterns.md"
+  "skills/githubpill/references/judge-rubric.md"
+  "skills/githubpill/references/report-template.md"
+  "skills/githubpill/references/deep-search-protocol.md"
   "hooks/safe-clone-guard.sh"
   "LICENSE"
   "README.md"
@@ -75,7 +75,7 @@ for jf in ".claude-plugin/plugin.json" ".claude-plugin/marketplace.json" "packag
 done
 
 # ---------- 3. SKILL.md frontmatter required keys ----------
-SKILL_FILE="skills/reporecon/SKILL.md"
+SKILL_FILE="skills/githubpill/SKILL.md"
 if [[ -f "$SKILL_FILE" ]]; then
   FM="$(awk '/^---$/{f++; next} f==1{print} f==2{exit}' "$SKILL_FILE")"
   for key in "name" "description" "allowed-tools"; do

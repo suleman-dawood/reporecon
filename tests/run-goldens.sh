@@ -4,7 +4,7 @@
 # What this script enforces (the Phase 1 ship gate per 01-CONTEXT D-34):
 #   For each tests/golden/*.json fixture:
 #     For run in 1..3:
-#       - Invoke the reporecon skill non-interactively with the fixture's `idea`.
+#       - Invoke the githubpill skill non-interactively with the fixture's `idea`.
 #       - Parse the verdict band (🟢 / 🟡 / 🔴) from the emitted report H1.
 #       - Record wall-clock seconds (T1-09 budget = 90s).
 #       - Record per-candidate axis_sum totals from the report body.
@@ -19,7 +19,7 @@
 #     (b) devil's-advocate trigger  — references/judge-rubric.md
 #     (c) query archetype phrasing  — references/query-patterns.md
 #     (d) threshold table           — references/judge-rubric.md
-#     (e) per-search sleep / candidate count — skills/reporecon/SKILL.md
+#     (e) per-search sleep / candidate count — skills/githubpill/SKILL.md
 #   Re-run the suite after every tuning. Commit tunings as separate
 #   `tune(01-07): ...` commits.
 #
@@ -28,8 +28,8 @@
 #   - jq  >= 1.7
 #   - gh auth login   (gh api rate_limit must return remaining > 50)
 #   - claude CLI on PATH supporting non-interactive skill invocation
-#       (either `claude --headless --skill reporecon "<idea>"` OR
-#        `claude -p "/reporecon <idea>"` with a non-interactive flag)
+#       (either `claude --headless --skill githubpill "<idea>"` OR
+#        `claude -p "/githubpill <idea>"` with a non-interactive flag)
 #
 # Headless invocation:
 #   The script auto-detects the supported claude invocation mode. If no
@@ -41,7 +41,7 @@ set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 FIXTURE_DIR="$REPO_ROOT/tests/golden"
-REPORT_DIR="$REPO_ROOT/reporecon-reports"
+REPORT_DIR="$REPO_ROOT/githubpill-reports"
 RESULTS_DIR="$REPO_ROOT/tests/.goldens-results"
 T1_BUDGET_SECONDS=90
 RUNS_PER_FIXTURE=3
@@ -81,8 +81,8 @@ if [[ -z "$CLAUDE_BIN" ]]; then
 fi
 
 # Two supported modes (auto-detect):
-#   MODE_HEADLESS_SKILL   — claude --headless --skill reporecon "<idea>"
-#   MODE_PRINT_SLASH      — claude -p "/reporecon <idea>"
+#   MODE_HEADLESS_SKILL   — claude --headless --skill githubpill "<idea>"
+#   MODE_PRINT_SLASH      — claude -p "/githubpill <idea>"
 CLAUDE_HELP="$("$CLAUDE_BIN" --help 2>&1 || true)"
 INVOKE_MODE=""
 if grep -q -- "--headless" <<<"$CLAUDE_HELP" && grep -q -- "--skill" <<<"$CLAUDE_HELP"; then
@@ -100,10 +100,10 @@ invoke_skill() {
   local idea="$1"
   case "$INVOKE_MODE" in
     headless-skill)
-      "$CLAUDE_BIN" --headless --skill reporecon "$idea"
+      "$CLAUDE_BIN" --headless --skill githubpill "$idea"
       ;;
     print-slash)
-      "$CLAUDE_BIN" -p "/reporecon $idea"
+      "$CLAUDE_BIN" -p "/githubpill $idea"
       ;;
   esac
 }
@@ -161,8 +161,8 @@ for f in "${fixtures[@]}"; do
   bands=()
   for run in $(seq 1 $RUNS_PER_FIXTURE); do
     start_ts=$(date -u +%s)
-    invoke_skill "$idea" >/tmp/reporecon-goldens-stdout-$$.$run.log 2>&1 || {
-      echo "  run $run: skill invocation FAILED (see /tmp/reporecon-goldens-stdout-$$.$run.log)" >&2
+    invoke_skill "$idea" >/tmp/githubpill-goldens-stdout-$$.$run.log 2>&1 || {
+      echo "  run $run: skill invocation FAILED (see /tmp/githubpill-goldens-stdout-$$.$run.log)" >&2
       OVERALL_PASS=0
       bands+=("?")
       echo "$fixture_name,$run,?,FAIL,0" >> "$csv"

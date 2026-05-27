@@ -1,6 +1,6 @@
 # tests/fixtures/
 
-Deterministic, committed-in-repo regression fixtures for RepoRecon deep search
+Deterministic, committed-in-repo regression fixtures for GithubPill deep search
 (deep inspection). These fixtures exercise adversarial-input handling and
 the mechanical vapor heuristic. They are consumed by SKILL.md examples and
 by the deep search golden runner.
@@ -60,7 +60,7 @@ A directory shaped to trigger the mechanical vapor heuristic (D2-09, HEUR-01):
 
 ## Consumers
 
-- **`skills/reporecon/SKILL.md`** (deep search protocol, plan 02-06) — references
+- **`skills/githubpill/SKILL.md`** (deep search protocol, plan 02-06) — references
   `planted-injection-readme.md` as the canonical example for the
   `<untrusted_content>` + `suspected_injection` flag path.
 - **`tests/run-goldens.sh`** (deep search path, plan 02-07) — runs both fixtures

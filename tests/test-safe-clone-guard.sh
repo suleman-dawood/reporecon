@@ -4,7 +4,7 @@
 # Verifies the PreToolUse:Bash hook:
 #  - rewrites `git clone` with the clone-safety contract
 #  - denies oversize repos via gh api size pre-check
-#  - honours REPORECON_MAX_SIZE_KB override
+#  - honours GITHUBPILL_MAX_SIZE_KB override
 #  - passes through non-clone Bash commands and non-Bash tools
 set -euo pipefail
 
@@ -37,13 +37,13 @@ OUT=$(printf '%s' "$INPUT" | bash "$HOOK")
 assert_contains "deny" "$OUT" "oversize denied"
 assert_contains "50000KB cap" "$OUT" "size reason emitted"
 
-# Case 3: REPORECON_MAX_SIZE_KB env override raises the cap
+# Case 3: GITHUBPILL_MAX_SIZE_KB env override raises the cap
 INPUT='{"tool_name":"Bash","tool_input":{"command":"git clone https://github.com/torvalds/linux /tmp/big2"}}'
 export MOCK_GH_FIXTURE='80000'
-export REPORECON_MAX_SIZE_KB=100000
+export GITHUBPILL_MAX_SIZE_KB=100000
 OUT=$(printf '%s' "$INPUT" | bash "$HOOK")
 assert_contains "allow" "$OUT" "override allows up to MAX_SIZE_KB"
-unset REPORECON_MAX_SIZE_KB
+unset GITHUBPILL_MAX_SIZE_KB
 
 # Case 4: non-git-clone Bash command passes through (empty JSON)
 INPUT='{"tool_name":"Bash","tool_input":{"command":"ls -la"}}'
