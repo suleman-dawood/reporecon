@@ -12,8 +12,14 @@ if ! rate_json="$(gh api rate_limit 2>/dev/null)"; then
   exit 2
 fi
 
-core_rem="$(echo "$rate_json" | jq -r '.resources.core.remaining')"
-search_rem="$(echo "$rate_json" | jq -r '.resources.search.remaining')"
+core_rem="$(printf '%s' "$rate_json" | jq -er '.resources.core.remaining' 2>/dev/null)" || {
+  echo "ERROR: malformed rate_limit JSON (core.remaining missing). Run \`gh api rate_limit\` manually." >&2
+  exit 2
+}
+search_rem="$(printf '%s' "$rate_json" | jq -er '.resources.search.remaining' 2>/dev/null)" || {
+  echo "ERROR: malformed rate_limit JSON (search.remaining missing). Run \`gh api rate_limit\` manually." >&2
+  exit 2
+}
 
 if ! [[ "$core_rem" =~ ^[0-9]+$ ]] || ! [[ "$search_rem" =~ ^[0-9]+$ ]]; then
   echo "ERROR: could not parse rate_limit JSON. Run \`gh api rate_limit\` manually." >&2
