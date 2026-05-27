@@ -1,0 +1,67 @@
+#!/usr/bin/env bash
+# Mock git CLI for e2e tests. Supports only `clone`. Selects fixture tree via
+# MOCK_GIT_PROFILE (normal_repo | vapor_repo | empty_repo). Other flags
+# (--depth, --filter, --single-branch, --no-tags) are accepted as no-ops.
+set -euo pipefail
+
+if [ "${1:-}" = "clone" ]; then
+  shift
+  # Strip leading flags (--depth 1, --filter=blob:none, --single-branch, --no-tags, --).
+  while [ $# -gt 0 ]; do
+    case "$1" in
+      --depth)
+        shift 2 || true
+        ;;
+      --filter=*|--single-branch|--no-tags|--bare|--mirror)
+        shift
+        ;;
+      --filter)
+        shift 2 || true
+        ;;
+      --)
+        shift
+        break
+        ;;
+      --*)
+        shift
+        ;;
+      *)
+        break
+        ;;
+    esac
+  done
+  URL="${1:-}"; DEST="${2:-}"
+  [ -z "$DEST" ] && { echo "mock-git: missing dest (url=$URL)" >&2; exit 1; }
+  mkdir -p "$DEST"
+  PROFILE="${MOCK_GIT_PROFILE:-normal_repo}"
+  case "$PROFILE" in
+    normal_repo)
+      printf '# Real Project\n\nThis project does X and Y.\n' > "$DEST/README.md"
+      for i in 1 2 3 4 5 6 7 8 9 10; do
+        printf 'def fn_%d():\n    pass\n' "$i" > "$DEST/src_$i.py"
+      done
+      ;;
+    vapor_repo)
+      cat > "$DEST/README.md" <<'MDR'
+# Feature-Rich Project
+## Feature 1: AI-powered everything
+## Feature 2: Cloud-native scaling
+## Feature 3: Zero-config setup
+## Feature 4: Multi-tenant support
+## Feature 5: Real-time analytics
+MDR
+      printf 'def main():\n    pass\n' > "$DEST/main.py"
+      ;;
+    empty_repo)
+      printf '# Empty\n' > "$DEST/README.md"
+      ;;
+    *)
+      echo "mock-git: unknown MOCK_GIT_PROFILE=$PROFILE" >&2
+      exit 1
+      ;;
+  esac
+  exit 0
+fi
+
+echo "mock-git: unsupported command: $*" >&2
+exit 1

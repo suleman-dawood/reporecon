@@ -7,6 +7,7 @@ FAILED=0
 TOTAL=0
 FAILED_FILES=()
 
+echo "=== Unit ==="
 for test in "$HERE"/test-*.sh; do
   TOTAL=$((TOTAL + 1))
   echo ""
@@ -14,6 +15,19 @@ for test in "$HERE"/test-*.sh; do
   if ! bash "$test"; then
     FAILED=$((FAILED + 1))
     FAILED_FILES+=("$(basename "$test")")
+  fi
+done
+
+echo ""
+echo "=== E2E ==="
+for test in "$HERE"/e2e/e2e-*.sh; do
+  [ -f "$test" ] || continue
+  TOTAL=$((TOTAL + 1))
+  echo ""
+  echo "==> e2e/$(basename "$test")"
+  if ! bash "$test"; then
+    FAILED=$((FAILED + 1))
+    FAILED_FILES+=("e2e/$(basename "$test")")
   fi
 done
 
