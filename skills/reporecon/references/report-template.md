@@ -157,25 +157,26 @@ The "Closed-Source / SaaS Competitors" section header should appear in the repor
 The substituted value is the emoji followed by the label in quotes, e.g.
 `🔴 "This exists"`.
 
-## Tier 2 Footer
+## Deep-Search Footer
 
 `{{TIER2_FOOTER}}` is substituted with one of the two literal blocks below.
-SKILL.md picks based on whether Tier 2 ran on this invocation.
+SKILL.md picks based on whether deep search ran on this invocation.
 
-### Tier 1 → Tier 2 Opt-In Footer
+### First-Search → Deep-Search Opt-In Footer
 
-Used when Tier 1 finishes with a 🟡 or 🔴 verdict and Tier 2 was not opted into
-yet on this run:
+Used when the first search finishes with a 🟡 or 🔴 verdict and deep search was
+not opted into yet on this run:
 
-> **Want deep inspection?** Tier 2 will clone the top WORTH_INSPECTING
+> **Want deep inspection?** Deep search will clone the top WORTH_INSPECTING
 > candidates and judge equivalence with file-path evidence. Budget: ~10 minutes,
-> ≤50 gh api calls. Reply `tier 2` (or `yes`/`deep dive`) to start.
+> ≤50 gh api calls. Reply `deep search` (aliases: `yes`, `deep dive`, `tier 2`)
+> to start.
 
-### Tier 2 Completed Footer
+### Deep-Search Completed Footer
 
-Used at the end of a report after Tier 2 ran:
+Used at the end of a report after deep search ran:
 
-> Tier 2 inspection complete. {{TIER2_CANDIDATES_INSPECTED}} candidates cloned;
+> Deep search complete. {{TIER2_CANDIDATES_INSPECTED}} candidates cloned;
 > {{TIER2_CLONES_SKIPPED}} skipped (oversize/timeout/LFS/injection). See **Your
 > Angle** section above for differentiation guidance.
 
@@ -195,11 +196,13 @@ Hard rules enforced by the SKILL.md protocol when writing the report:
   description field from `gh api` is the most common injection vector for Tier 1
   (Tier 2 has the bigger surface).
 
-## Tier 2 Markdown Template (Extension)
+## Deep-Search Markdown Template (full file)
 
-When Tier 2 ran, SKILL.md uses the Tier 1 template above PLUS inserts the
-following sections **between `## Candidates` and `## What's Next?`**. The Tier 1
-template body remains unchanged otherwise.
+When deep search ran, SKILL.md uses the first-search template above PLUS inserts
+the following sections **between `## Candidates` and `## What's Next?`**. The
+first-search template body remains unchanged otherwise. Note: per the Report
+Rewrite Semantics section below, deep search REWRITES the report file in place
+— the final on-disk artifact is a single coherent document, not an append.
 
 ```markdown
 ## Your Angle
@@ -210,13 +213,13 @@ template body remains unchanged otherwise.
 
 {{ANGLE_BULLETS}}
 
-## Tier 2 Inspection Stats
+## Deep-Search Inspection Stats
 
 - Clones attempted: {{TIER2_CLONES_ATTEMPTED}}
 - Clones succeeded: {{TIER2_CANDIDATES_INSPECTED}}
 - Clones skipped: {{TIER2_CLONES_SKIPPED}} (oversize/timeout/LFS/injection)
-- gh rate budget (core) Tier 2 delta: {{TIER2_RATE_CORE_DELTA}}
-- gh rate budget (search) Tier 2 delta: {{TIER2_RATE_SEARCH_DELTA}}
+- gh rate budget (core) deep-search delta: {{TIER2_RATE_CORE_DELTA}}
+- gh rate budget (search) deep-search delta: {{TIER2_RATE_SEARCH_DELTA}}
 ```
 
 **Additional Tier 2 placeholders (verbatim):**
@@ -225,11 +228,36 @@ template body remains unchanged otherwise.
 `{{TIER2_CANDIDATES_INSPECTED}}`, `{{TIER2_CLONES_SKIPPED}}`,
 `{{TIER2_RATE_CORE_DELTA}}`, `{{TIER2_RATE_SEARCH_DELTA}}`.
 
-## Tier 2 Per-Candidate Block
+## Report Rewrite Semantics (v0.3.0)
 
-When Tier 2 ran, SKILL.md uses the following block in place of the Tier 1
-Per-Candidate Block (above) for each verified candidate. Tier 1 invocations
-still use the Tier 1 block — SKILL.md picks based on tier.
+When deep search runs on an idea that already has a first-search report on disk,
+the report file is REWRITTEN in place — not appended to. The final report is a
+SINGLE coherent document with:
+
+1. The deep-search verdict banner (replacing the first-search banner)
+2. Sharpened idea + preserved terms (unchanged)
+3. Run metadata combining BOTH passes' rate-budget deltas
+4. Candidates block: shows the deep-search per-candidate blocks (with file-path
+   evidence) for cloned candidates; non-cloned first-search candidates that
+   were not WORTH_INSPECTING enough for deep search are dropped from the
+   rewritten report (their first-search summary is no longer the source of
+   truth)
+5. Closed-Source / SaaS Competitors block (if any)
+6. Your Angle synthesis
+7. Deep-Search Completed Footer
+
+There is no "Tier 1 section" + "Tier 2 section" — there is one final report.
+
+The first-search-only report layout (with the Opt-In Footer at the bottom) is
+the artifact written when only the first search has run. It is overwritten by
+the deep-search rewrite when the user opts in.
+
+## Deep-Search Per-Candidate Block
+
+When deep search ran, SKILL.md uses the following block in place of the
+first-search Per-Candidate Block (above) for each verified candidate.
+First-search-only invocations still use the first-search block — SKILL.md picks
+based on which pass produced the candidate set.
 
 ```markdown
 ### {{CAND_FULL_NAME}}
@@ -301,7 +329,7 @@ cited evidence phrases).
 
 SKILL.md MUST run this synthesis step AFTER all candidate verdicts complete.
 
-## Tier 2 Discipline Additions
+## Deep-Search Discipline Additions
 
 Beyond the Phase 1 Output Discipline rules above:
 
