@@ -3,6 +3,21 @@
 All notable changes to RepoRecon will be documented here.
 Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versioning: [SemVer](https://semver.org/).
 
+## v0.4.0 — 2026-05-27 — Performance + UX
+
+**Performance**
+- Per-candidate deep-search judge calls now fan out via subagents (~4 min → ~1.5 min); one subagent per candidate, dispatched in a single turn, mechanical verdict derivation stays in the orchestrator.
+- First-search WebSearch + gh-search query batches now run in parallel (xargs -P 4 for gh-search; 5 WebSearch calls in one turn).
+- Result cache keyed on sharpened-sentence sha1 with 1hr TTL — re-runs of the same idea skip redundant network work. `scripts/cache.sh` verbs: `key`, `get`, `put`, `invalidate`, `prune`.
+
+**UX**
+- Progress ticks via stderr (`scripts/status.sh`) so the user sees what step the protocol is on — verbs `start`, `tick`, `done`, `error`, stdout stays clean for JSON pipelines.
+- Report template rewritten for narrative-first output: every candidate gets a "What it does" + "Overlap with your idea" prose block; metadata moved to collapsible footer. New placeholders: `{{VERDICT_HEADLINE}}`, `{{NARRATIVE_LEAD}}`, `{{CAND_DESCRIPTION_NARRATIVE}}`, `{{CAND_OVERLAP_NARRATIVE}}`, `{{CAND_FILE_PATHS_PROSE}}`, `{{CAND_EVIDENCE_NARRATIVE}}`, `{{PROVENANCE_SUMMARY}}`, `{{CAND_STALENESS_SUFFIX}}`.
+- New `--no-cache` / `--fresh` user override for skipping the cache on a single invocation.
+
+**Resilience**
+- `gh api` calls now retry once with exponential backoff (5s → 10s) on secondary rate-limit hits, exiting cleanly with code 78 after exhaustion. `gh-search.sh` and `verify-repo.sh` both wrap the new `gh_with_backoff` helper.
+
 ## [0.3.1] — 2026-05-27 — Terminology Purge
 
 Internal-vocabulary cleanup. v0.3.0 renamed user-facing headings but left
@@ -66,6 +81,7 @@ User testing on v0.1.0 surfaced systematic blind spots in the GitHub-only discov
 - Plugin packaging for Claude Code marketplace.
 - 3 golden fixtures + planted-injection + planted-vapor fixtures.
 
+[0.4.0]: https://github.com/suleman-dawood/reporecon/compare/v0.3.1...v0.4.0
 [0.3.1]: https://github.com/suleman-dawood/reporecon/compare/v0.3.0...v0.3.1
 [0.2.0]: https://github.com/suleman-dawood/reporecon/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/suleman-dawood/reporecon/releases/tag/v0.1.0
