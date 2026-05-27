@@ -40,13 +40,19 @@ gh_with_backoff() {
 
 repo="${1:?usage: verify-repo.sh <owner/repo>}"
 
-if ! repo_json="$(gh_with_backoff "repos/${repo}" 2>/dev/null)"; then
-  rc=$?
-  [ $rc -eq 78 ] && exit 78
+rc=0
+repo_json="$(gh_with_backoff "repos/${repo}" 2>/dev/null)" || rc=$?
+if [ "$rc" -ne 0 ]; then
+  [ "$rc" -eq 78 ] && exit 78
   exit 1
 fi
 
-contrib_count="$(gh_with_backoff "repos/${repo}/contributors?per_page=100&anon=true" --jq 'length' 2>/dev/null || echo null)"
+rc=0
+contrib_count="$(gh_with_backoff "repos/${repo}/contributors?per_page=100&anon=true" --jq 'length' 2>/dev/null)" || rc=$?
+if [ "$rc" -ne 0 ]; then
+  [ "$rc" -eq 78 ] && exit 78
+  contrib_count=null
+fi
 
 ts="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 
