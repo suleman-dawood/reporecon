@@ -3,6 +3,12 @@
 All notable changes to RepoRecon will be documented here.
 Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versioning: [SemVer](https://semver.org/).
 
+## v0.4.1 — 2026-05-27 — Bug fixes
+
+- `verify-repo.sh` now propagates exit code 78 from `gh_with_backoff` correctly. Previously, secondary-rate-limit exhaustion exited with 1, indistinguishable from 404/other errors. Callers (and the SKILL.md retry-aware logic) can now branch on 78 specifically.
+- `preflight.sh` now exits 2 with a clear error on malformed `gh api rate_limit` responses, instead of bubbling up `jq`'s exit code via `set -e`.
+- Unit tests tightened: assertions for these cases now require the exact documented exit codes rather than "non-zero".
+
 ## v0.4.0 — 2026-05-27 — Performance + UX
 
 **Performance**
