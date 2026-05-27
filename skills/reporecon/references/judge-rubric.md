@@ -9,7 +9,7 @@ and confirmation bias toward "your idea is unique" (Pitfall 2).
 
 First search judges from **README + GitHub API metadata ONLY**. There are no clones,
 no source files, no file-path evidence available at this tier. Therefore first-search
-verdicts are **capped at `WORTH_INSPECTING`** (the Tier 1 cap invariant). The full 5-level taxonomy
+verdicts are **capped at `WORTH_INSPECTING`** (the first-search cap invariant). The full 5-level taxonomy
 (`EXACT_MATCH` / `SIGNIFICANT_OVERLAP` / `PARTIAL_OVERLAP` / `SUPERFICIAL_MATCH` /
 `VAPOR`) is **deep-search only** and requires clone-based file-path evidence.
 
@@ -162,9 +162,9 @@ stands and the report notes that a devil's-advocate pass was run.
 - LLM emits JSON only — no prose preamble, no surrounding markdown fence.
 - If JSON is malformed, SKILL.md retries the call **once**. A second malformed
   response aborts the run with an actionable error.
-- **Never emit Phase 2 verdict labels in Tier 1 output.** The strings
+- **Never emit Phase 2 verdict labels in first search output.** The strings
   `EXACT_MATCH`, `SIGNIFICANT_OVERLAP`, `PARTIAL_OVERLAP`, `SUPERFICIAL_MATCH`,
-  and `VAPOR` must not appear in any Tier 1 report, prompt, or JSON. They are
+  and `VAPOR` must not appear in any first search report, prompt, or JSON. They are
   documented here only to define the cap (per JDG-04).
 - The judge prompt MUST NOT include the user's original natural-language
   framing — only the sharpened sentence and preserved terms (per Pitfall 2
@@ -175,13 +175,13 @@ stands and the report notes that a devil's-advocate pass was run.
 
 ## Non-GitHub Competitor Rule (v0.2.0)
 
-Web-cross-check feeds candidates tagged `provenance: tier1-web-saas` (closed-source SaaS, YC company landing pages, etc.) into the candidate pool. These have URLs but no source code to clone.
+Web-cross-check feeds candidates tagged `provenance: first-web-saas` (closed-source SaaS, YC company landing pages, etc.) into the candidate pool. These have URLs but no source code to clone.
 
 ### Scoring
 Score each non-GitHub candidate on the **same 5 axes** (core_function, target_audience, scope, approach, activity) using ONLY the WebSearch evidence snippet + the candidate's landing-page metadata. Pass the candidate's name + evidence_snippet + source_query into the judge prompt. The same anti-novelty framing applies.
 
 ### Verdict cap (First Search)
-- Without clone evidence, a non-GitHub candidate's verdict label is capped at `WORTH_INSPECTING` (Tier 1 cap, same as gh candidates).
+- Without clone evidence, a non-GitHub candidate's verdict label is capped at `WORTH_INSPECTING` (first-search cap, same as gh candidates).
 - In deep search: cap stays at `SUPERFICIAL_MATCH` for non-GitHub candidates because file-path evidence is unobtainable (no clone). This honors JDG-04: PARTIAL_OVERLAP+ requires file paths.
 
 ### Overall verdict aggregation (revised)
@@ -197,8 +197,8 @@ A non-GitHub candidate can't earn `LIKELY_MATCH` directly (cap rule above). The 
 
 ## Deep-Search 5-Level Verdict Derivation
 
-Deep search produces the full 5-level verdict taxonomy. The Tier 1 cap (above) still
-holds for Tier 1 invocations — Tier 2 labels appear ONLY in Tier 2 output.
+Deep search produces the full 5-level verdict taxonomy. The first-search cap (above) still
+holds for first search invocations — deep search labels appear ONLY in deep search output.
 
 The five labels:
 

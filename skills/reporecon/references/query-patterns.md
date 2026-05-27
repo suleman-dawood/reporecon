@@ -1,7 +1,7 @@
-# Tier 1 Query Patterns + Idea Sharpening
+# First-Search Query Patterns + Idea Sharpening
 
 This reference is loaded on-demand by `skills/reporecon/SKILL.md` during the
-**sharpen** (Step 1) and **query generation** (Step 2) phases of the Tier 1
+**sharpen** (Step 1) and **query generation** (Step 2) phases of the first search
 protocol. Progressive disclosure: keep this open only while those steps run.
 
 ## Idea Sharpening (Step 1 of SKILL.md protocol)
@@ -145,7 +145,7 @@ The 7 archetypes are diversified so the result-set union covers literal,
 near-synonym, outcome, technical, adjacent-domain, canonical-product-name, and
 topic-tag framings of the same idea. This is per D-09 in `01-CONTEXT.md`.
 
-Tier 1 budgets up to **15 gh search calls** (7 queries × 1 search each, plus
+first search budgets up to **15 gh search calls** (7 queries × 1 search each, plus
 buffer for retries / pagination).
 
 ### LITERAL
@@ -222,7 +222,7 @@ Example: `topic:gmail-automation topic:llm-agent`
 
 Hard rules every generated query must satisfy:
 
-- No `is:private` qualifiers (Tier 1 has no business inspecting private repos).
+- No `is:private` qualifiers (first search has no business inspecting private repos).
 - No `/search/code` endpoint usage; this is **repo search only**.
 - No embedded newlines.
 - Queries are independent — do not chain or assume one feeds the next.

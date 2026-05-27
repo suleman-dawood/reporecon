@@ -1,8 +1,8 @@
-# Web Cross-Check Protocol (Tier 1 baseline)
+# Web Cross-Check Protocol (first-search baseline)
 
 **Purpose.** Catch competitors that don't appear in `gh api search/repositories` — closed-source SaaS, YC startups, GitHub Apps, GitHub Marketplace Actions, well-known products buried in awesome-list curations.
 
-This protocol runs ONCE in Tier 1 immediately after the gh-search discovery step. It is NOT optional. Skipping it reintroduces the v0.1.0 blind spot.
+This protocol runs ONCE in first search immediately after the gh-search discovery step. It is NOT optional. Skipping it reintroduces the v0.1.0 blind spot.
 
 ## Inputs
 - Sharpened sentence
@@ -20,12 +20,12 @@ A JSON array of `web_candidate` objects:
   "category": "closed-source-saas | yc-company | github-app | github-marketplace | awesome-list-entry | hn-launch | product-hunt | other",
   "evidence_snippet": "<≤200 chars from the WebSearch result that supports the claim>",
   "source_query": "<the WebSearch query that surfaced it>",
-  "http_code": "<3-digit HTTP status from verify-url.sh, REQUIRED for tier1-web-saas candidates>",
+  "http_code": "<3-digit HTTP status from verify-url.sh, REQUIRED for first-web-saas candidates>",
   "final_url": "<URL after redirect chain — surface in report if it differs from the original url>"
 }
 ```
 
-Candidates whose URL is a `github.com/<owner>/<repo>` link MUST be additionally verified via `scripts/verify-repo.sh` and merged into the gh-candidate pool (provenance: "tier1-web" rather than tier1-gh).
+Candidates whose URL is a `github.com/<owner>/<repo>` link MUST be additionally verified via `scripts/verify-repo.sh` and merged into the gh-candidate pool (provenance: "first-web" rather than first-gh).
 
 ## Required searches (5 queries, single batch)
 
@@ -37,7 +37,7 @@ Generate exactly 5 WebSearch queries in ONE LLM call (temperature 0). Each must 
 4. **GitHub Marketplace + GitHub Apps** — `site:github.com/marketplace "<domain>"` OR `"GitHub App" <sharpened sentence>`.
 5. **HN / Product Hunt** — `site:news.ycombinator.com "<sharpened sentence>"` OR `site:producthunt.com "<domain>"`.
 
-If any query returns nothing useful, the model MAY substitute a tighter variant ONCE. Do not exceed 5 WebSearch calls total per Tier 1 run.
+If any query returns nothing useful, the model MAY substitute a tighter variant ONCE. Do not exceed 5 WebSearch calls total per first search run.
 
 ## Filtering rules
 
@@ -50,15 +50,15 @@ For each WebSearch result:
 ## Verification
 
 For each candidate URL:
-- If it's a `github.com/<owner>/<repo>` URL → run `scripts/verify-repo.sh` on it. 404 = drop. Otherwise merge into the gh-candidate pool with `provenance=tier1-web`.
-- If it's a non-GitHub URL (SaaS landing page, YC profile, etc.) → it counts as a `web_candidate` with `provenance=tier1-web-saas`. Do NOT cite this URL in the report header without `verified_at` from a successful WebSearch result; treat as "found-not-verified-equivalence".
+- If it's a `github.com/<owner>/<repo>` URL → run `scripts/verify-repo.sh` on it. 404 = drop. Otherwise merge into the gh-candidate pool with `provenance=first-web`.
+- If it's a non-GitHub URL (SaaS landing page, YC profile, etc.) → it counts as a `web_candidate` with `provenance=first-web-saas`. Do NOT cite this URL in the report header without `verified_at` from a successful WebSearch result; treat as "found-not-verified-equivalence".
 
 ### Non-GitHub URL verification (v0.3.0)
 
 For each `web_candidate.url` that is NOT `github.com/...`:
 
 1. Run `bash $PLUGIN_ROOT/scripts/verify-url.sh "<url>"`.
-2. On exit 0: tag `provenance=tier1-web-saas`, attach the returned JSON
+2. On exit 0: tag `provenance=first-web-saas`, attach the returned JSON
    (`http_code`, `final_url`, `checked_at`). Keep in the SaaS pool.
 3. On exit 20/21/22/23: DROP the candidate entirely. Log the drop reason in
    the report's "Closed-Source / SaaS Discovery" section under a
@@ -69,12 +69,12 @@ This catches hallucinated SaaS competitors from WebSearch SEO spam. Without
 this gate, a model-fabricated landing-page URL could leak into the report
 unverified.
 
-## Why this is mandatory in Tier 1, not Tier 2
+## Why this is mandatory in first search, not deep search
 
-The closed-source case is the **dominant** failure mode for the v0.1.0 protocol. Holding it back behind Tier 2 opt-in meant 🟢 verdicts on already-saturated lanes (Idea 2 in user testing: Ellipsis, CodeRabbit Autofix, Sweep, Greptile all missed). Tier 2 stays for clone-inspection depth; web cross-check is breadth.
+The closed-source case is the **dominant** failure mode for the v0.1.0 protocol. Holding it back behind deep search opt-in meant 🟢 verdicts on already-saturated lanes (Idea 2 in user testing: Ellipsis, CodeRabbit Autofix, Sweep, Greptile all missed). deep search stays for clone-inspection depth; web cross-check is breadth.
 
 ## Output Discipline
 
 - Web-candidate URLs that are NOT github.com appear in a separate "Closed-Source / SaaS Competitors" report block (see `report-template.md`).
 - Web-candidate URLs that ARE github.com are merged into the regular candidate pool with provenance tag.
-- The Tier 1 overall verdict considers BOTH gh-candidates and web-candidates. A strong closed-source competitor with ≥3 axis matches against the sharpened sentence is a 🔴 even with zero gh candidates.
+- The first search overall verdict considers BOTH gh-candidates and web-candidates. A strong closed-source competitor with ≥3 axis matches against the sharpened sentence is a 🔴 even with zero gh candidates.
