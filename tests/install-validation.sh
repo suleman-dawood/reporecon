@@ -21,7 +21,7 @@ REQUIRED_FILES=(
   "skills/reporecon/references/query-patterns.md"
   "skills/reporecon/references/judge-rubric.md"
   "skills/reporecon/references/report-template.md"
-  "skills/reporecon/references/deep-protocol.md"
+  "skills/reporecon/references/deep-search-protocol.md"
   "scripts/preflight.sh"
   "scripts/gh-search.sh"
   "scripts/verify-repo.sh"
@@ -121,7 +121,7 @@ if [[ -f "$SKILL_FILE" ]]; then
 fi
 
 # ---------- 6. SKILL.md references each references/*.md ----------
-REFERENCE_MDS=(query-patterns.md judge-rubric.md report-template.md deep-protocol.md)
+REFERENCE_MDS=(query-patterns.md judge-rubric.md report-template.md deep-search-protocol.md)
 if [[ -f "$SKILL_FILE" ]]; then
   for rm in "${REFERENCE_MDS[@]}"; do
     if grep -q "$rm" "$SKILL_FILE"; then

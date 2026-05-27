@@ -1,5 +1,5 @@
 {
-  "name": "tier2-injection",
+  "name": "deep-injection",
   "tier": 2,
   "mode": "stub",
   "fixture_file": "tests/fixtures/planted-injection-readme.md",

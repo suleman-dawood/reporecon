@@ -266,9 +266,9 @@ non-fatal — log and continue.
 
 ## Step DEEP-B: Discovery Expansion (gh api)
 
-Read `$PLUGIN_ROOT/skills/reporecon/references/deep-protocol.md`
+Read `$PLUGIN_ROOT/skills/reporecon/references/deep-search-protocol.md`
 sections "Discovery Expansion" and "Dedupe Rule". Generate **10 queries in ONE
-LLM call** (temperature 0) per the 10 archetypes in deep-protocol.md
+LLM call** (temperature 0) per the 10 archetypes in deep-search-protocol.md
 (DOMAIN-NARROW, TOPIC-TAG, DESCRIPTION-MATCH, README-MATCH, LICENSE-FILTER,
 SIZE-BOUND, FORK-EXCLUDED, RECENT-ACTIVITY, STAR-BOUND, ORG-AUTHOR). Each query
 MUST include at least one preserved term verbatim.
@@ -279,7 +279,7 @@ Sleep 400ms between calls. Collect 10 JSON arrays. Track gh rate budget delta
 
 ## Step DEEP-C: WebSearch Expansion
 
-Read `deep-protocol.md` section "WebSearch Protocol". Generate **5 WebSearch
+Read `deep-search-protocol.md` section "WebSearch Protocol". Generate **5 WebSearch
 queries** (one LLM call, temperature 0) biased toward `site:github.com` and
 direct repo links. Invoke the `WebSearch` tool per query. Extract every
 `github.com/<owner>/<repo>` URL pattern from results. For each extracted URL:

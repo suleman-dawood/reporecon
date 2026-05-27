@@ -1,5 +1,5 @@
 {
-  "name": "tier2-vapor",
+  "name": "deep-vapor",
   "tier": 2,
   "mode": "stub",
   "fixture_dir": "tests/fixtures/planted-vapor-repo",
