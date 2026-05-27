@@ -13,7 +13,7 @@ A Claude Code plugin that checks if your project idea already exists on GitHub b
 > Run these inside the Claude Code chat.
 
 ```
-/plugin marketplace add suleman-dawood/reporecon
+/plugin marketplace add suleman-dawood/githubpill
 /plugin install githubpill@githubpill
 ```
 
