@@ -10,7 +10,7 @@ A Claude Code plugin that checks if your project idea already exists on GitHub b
 
 ## Install
 
-> ⚠️ Run these **inside the Claude Code chat**, not your shell terminal. Type them with the leading `/` like you would `/help` or `/clear`.
+> Run these inside the Claude Code chat.
 
 ```
 /plugin marketplace add suleman-dawood/reporecon
@@ -79,7 +79,7 @@ If `/reporecon` doesn't seem to do anything after install:
 
 - **GitHub-only.** GitLab, Codeberg, self-hosted forges, and package-registry-only tools are not searched.
 - **WebSearch results drift.** Same query on different days can shift the verdict on borderline ideas.
-- **Verify before you decide.** RepoRecon narrows the search; it doesn't replace reading the top candidate's README yourself.
+- **Verify before you decide.** RepoRecon narrows the search; it doesn't replace you making the final call yourself before you commit to a project.
 
 ## License
 
