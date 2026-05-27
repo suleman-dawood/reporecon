@@ -22,13 +22,7 @@ REQUIRED_FILES=(
   "skills/reporecon/references/judge-rubric.md"
   "skills/reporecon/references/report-template.md"
   "skills/reporecon/references/deep-search-protocol.md"
-  "scripts/preflight.sh"
-  "scripts/gh-search.sh"
-  "scripts/verify-repo.sh"
-  "scripts/staleness.sh"
-  "scripts/safe-clone.sh"
-  "scripts/vapor-check.sh"
-  "commands/reporecon.md"
+  "hooks/safe-clone-guard.sh"
   "LICENSE"
   "README.md"
 )
@@ -41,9 +35,15 @@ for f in "${REQUIRED_FILES[@]}"; do
   fi
 done
 
+# scripts/ directory must NOT exist — logic moved into SKILL.md + hook.
+if [[ -d "scripts" ]]; then
+  fail "scripts/ directory should not exist; logic lives in SKILL.md + hooks/"
+else
+  ok "absent: scripts/ (expected)"
+fi
+
 # ---------- 2. JSON parse validation ----------
-# Prefer jq (it's the canonical dep for this plugin), fall back to python3 or
-# node if jq isn't installed yet on the validation host.
+# Prefer jq (canonical dep), fall back to python3 or node if jq is missing.
 json_check() {
   local f="$1"
   if command -v jq >/dev/null 2>&1; then
@@ -59,8 +59,10 @@ json_check() {
 
 for jf in ".claude-plugin/plugin.json" ".claude-plugin/marketplace.json" "package.json"; do
   if [[ -f "$jf" ]]; then
+    set +e
     json_check "$jf"
     rc=$?
+    set -e
     if [[ "$rc" -eq 0 ]]; then
       ok "valid JSON: $jf"
     elif [[ "$rc" -eq 2 ]]; then
@@ -75,7 +77,6 @@ done
 # ---------- 3. SKILL.md frontmatter required keys ----------
 SKILL_FILE="skills/reporecon/SKILL.md"
 if [[ -f "$SKILL_FILE" ]]; then
-  # Extract frontmatter (between first two --- lines)
   FM="$(awk '/^---$/{f++; next} f==1{print} f==2{exit}' "$SKILL_FILE")"
   for key in "name" "description" "allowed-tools"; do
     if printf '%s\n' "$FM" | grep -qE "^${key}:"; then
@@ -86,38 +87,35 @@ if [[ -f "$SKILL_FILE" ]]; then
   done
 fi
 
-# ---------- 4. scripts/*.sh executable + shebang + set -euo pipefail ----------
-shopt -s nullglob
-for s in scripts/*.sh; do
-  if [[ -x "$s" ]]; then
-    ok "executable: $s"
+# ---------- 4. hooks/safe-clone-guard.sh sanity ----------
+HOOK="hooks/safe-clone-guard.sh"
+if [[ -f "$HOOK" ]]; then
+  if [[ -x "$HOOK" ]]; then
+    ok "executable: $HOOK"
   else
-    fail "not executable: $s"
+    fail "not executable: $HOOK"
   fi
-  first_line="$(head -n1 "$s" || true)"
+  first_line="$(head -n1 "$HOOK" || true)"
   if [[ "$first_line" == "#!/usr/bin/env bash" ]]; then
-    ok "shebang ok: $s"
+    ok "shebang ok: $HOOK"
   else
-    fail "bad/missing shebang ($first_line): $s"
+    fail "bad/missing shebang ($first_line): $HOOK"
   fi
-  if grep -qE '^set -euo pipefail' "$s"; then
-    ok "set -euo pipefail: $s"
+  if grep -qE '^set -euo pipefail' "$HOOK"; then
+    ok "set -euo pipefail: $HOOK"
   else
-    fail "missing 'set -euo pipefail': $s"
+    fail "missing 'set -euo pipefail': $HOOK"
   fi
-done
-shopt -u nullglob
+fi
 
-# ---------- 5. SKILL.md references each helper script ----------
-HELPER_SCRIPTS=(preflight.sh gh-search.sh verify-repo.sh staleness.sh safe-clone.sh vapor-check.sh)
-if [[ -f "$SKILL_FILE" ]]; then
-  for hs in "${HELPER_SCRIPTS[@]}"; do
-    if grep -q "$hs" "$SKILL_FILE"; then
-      ok "SKILL.md references script: $hs"
-    else
-      fail "SKILL.md does not reference script: $hs"
-    fi
-  done
+# ---------- 5. plugin.json registers the PreToolUse:Bash hook ----------
+if command -v jq >/dev/null 2>&1; then
+  HOOK_CMD=$(jq -r '.hooks.PreToolUse[]? | select(.matcher == "Bash") | .hooks[]?.command // empty' .claude-plugin/plugin.json 2>/dev/null || true)
+  if [[ -n "$HOOK_CMD" ]] && printf '%s' "$HOOK_CMD" | grep -q 'safe-clone-guard.sh'; then
+    ok "plugin.json registers safe-clone-guard hook on PreToolUse:Bash"
+  else
+    fail "plugin.json does not register hooks/safe-clone-guard.sh on PreToolUse:Bash"
+  fi
 fi
 
 # ---------- 6. SKILL.md references each references/*.md ----------
