@@ -19,7 +19,9 @@ A JSON array of `web_candidate` objects:
   "url": "https://ellipsis.dev",
   "category": "closed-source-saas | yc-company | github-app | github-marketplace | awesome-list-entry | hn-launch | product-hunt | other",
   "evidence_snippet": "<≤200 chars from the WebSearch result that supports the claim>",
-  "source_query": "<the WebSearch query that surfaced it>"
+  "source_query": "<the WebSearch query that surfaced it>",
+  "http_code": "<3-digit HTTP status from verify-url.sh, REQUIRED for tier1-web-saas candidates>",
+  "final_url": "<URL after redirect chain — surface in report if it differs from the original url>"
 }
 ```
 
@@ -50,6 +52,22 @@ For each WebSearch result:
 For each candidate URL:
 - If it's a `github.com/<owner>/<repo>` URL → run `scripts/verify-repo.sh` on it. 404 = drop. Otherwise merge into the gh-candidate pool with `provenance=tier1-web`.
 - If it's a non-GitHub URL (SaaS landing page, YC profile, etc.) → it counts as a `web_candidate` with `provenance=tier1-web-saas`. Do NOT cite this URL in the report header without `verified_at` from a successful WebSearch result; treat as "found-not-verified-equivalence".
+
+### Non-GitHub URL verification (v0.3.0)
+
+For each `web_candidate.url` that is NOT `github.com/...`:
+
+1. Run `bash $PLUGIN_ROOT/scripts/verify-url.sh "<url>"`.
+2. On exit 0: tag `provenance=tier1-web-saas`, attach the returned JSON
+   (`http_code`, `final_url`, `checked_at`). Keep in the SaaS pool.
+3. On exit 20/21/22/23: DROP the candidate entirely. Log the drop reason in
+   the report's "Closed-Source / SaaS Discovery" section under a
+   "Candidates dropped (unreachable)" subsection so the user knows what was filtered.
+4. On exit 1: treat as 22 (drop). Do not retry.
+
+This catches hallucinated SaaS competitors from WebSearch SEO spam. Without
+this gate, a model-fabricated landing-page URL could leak into the report
+unverified.
 
 ## Why this is mandatory in Tier 1, not Tier 2
 
