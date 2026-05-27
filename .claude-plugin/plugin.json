@@ -10,5 +10,19 @@
   "homepage": "https://github.com/suleman-dawood/reporecon",
   "repository": "https://github.com/suleman-dawood/reporecon",
   "license": "MIT",
-  "keywords": ["github", "prior-art", "validation", "research", "skill", "reporecon"]
+  "keywords": ["github", "prior-art", "validation", "research", "skill", "reporecon"],
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${CLAUDE_PLUGIN_ROOT}/hooks/safe-clone-guard.sh",
+            "timeout": 15
+          }
+        ]
+      }
+    ]
+  }
 }

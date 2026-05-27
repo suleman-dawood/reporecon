@@ -46,7 +46,7 @@ if [ -n "${REPO_URL:-}" ] && printf '%s' "$REPO_URL" | grep -q 'github.com'; the
 fi
 
 # Rewrite the command to enforce safety flags.
-NEW_CMD=$(printf '%s' "$CMD" | sed -E 's|(^|[;&|[:space:]])git[[:space:]]+clone[[:space:]]+|\1GIT_LFS_SKIP_SMUDGE=1 timeout 60 git clone --depth 1 --filter=blob:none --single-branch --no-tags |')
+NEW_CMD=$(printf '%s' "$CMD" | sed -E 's#(^|[;&|[:space:]])git[[:space:]]+clone[[:space:]]+#\1GIT_LFS_SKIP_SMUDGE=1 timeout 60 git clone --depth 1 --filter=blob:none --single-branch --no-tags #')
 
 jq -nc --arg new_cmd "$NEW_CMD" '{
   hookSpecificOutput: {
