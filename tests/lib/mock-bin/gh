@@ -1,0 +1,52 @@
+#!/usr/bin/env bash
+# Mock gh CLI for unit tests.
+#
+# Env interface:
+#   MOCK_GH_FIXTURE       Path to fixture file OR literal JSON string. Emitted on stdout.
+#   MOCK_GH_FAIL          One of: ratelimit | secondary | http429 | 404
+#                         When set, write error message to stderr and exit 1.
+#   MOCK_GH_FAIL_FIRST_N  Number of initial calls that should fail with secondary
+#                         rate-limit message. Subsequent calls succeed.
+#   MOCK_GH_COUNTER_FILE  Path to counter state (required when FAIL_FIRST_N is set).
+#                         Test author is responsible for `rm -f` before each scenario.
+#   MOCK_GH_ARGS_LOG      If set, append all argv to this file (newline-separated).
+#
+# `gh auth status` always returns 0 regardless of other env (preflight needs this).
+set -euo pipefail
+
+if [ -n "${MOCK_GH_ARGS_LOG:-}" ]; then
+  printf '%s\n' "$*" >> "$MOCK_GH_ARGS_LOG"
+fi
+
+if [ "${1:-}" = "auth" ] && [ "${2:-}" = "status" ]; then
+  exit 0
+fi
+
+# Handle fail-first-N counter
+if [ -n "${MOCK_GH_FAIL_FIRST_N:-}" ]; then
+  counter_file="${MOCK_GH_COUNTER_FILE:-/tmp/mock-gh-counter-shared}"
+  current=$(cat "$counter_file" 2>/dev/null || echo 0)
+  if [ "$current" -lt "${MOCK_GH_FAIL_FIRST_N}" ]; then
+    echo $((current + 1)) > "$counter_file"
+    echo "You have exceeded a secondary rate limit" >&2
+    exit 1
+  fi
+fi
+
+case "${MOCK_GH_FAIL:-}" in
+  ratelimit) echo "API rate limit exceeded" >&2; exit 1 ;;
+  secondary) echo "You have exceeded a secondary rate limit" >&2; exit 1 ;;
+  http429)   echo "HTTP 429 — Too Many Requests" >&2; exit 1 ;;
+  404)       echo "gh: Not Found (HTTP 404)" >&2; exit 1 ;;
+  *) ;;
+esac
+
+if [ -n "${MOCK_GH_FIXTURE:-}" ]; then
+  if [ -f "$MOCK_GH_FIXTURE" ]; then
+    cat "$MOCK_GH_FIXTURE"
+  else
+    printf '%s' "$MOCK_GH_FIXTURE"
+  fi
+else
+  echo '{}'
+fi
