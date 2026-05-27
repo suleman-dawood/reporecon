@@ -23,6 +23,17 @@ the skill activated.
 > multiple ideas into a single batch report.** A consolidated chat-summary
 > table is fine; the on-disk artifacts must stay one-per-idea so they can be
 > linked, diffed, and re-run individually.
+>
+> **HARD RULE — no archetype collapsing in multi-idea runs.** When N ideas are
+> passed in one invocation, the protocol MUST run the full 5-archetype
+> WebSearch cross-check (per `references/web-cross-check.md`) **independently
+> for every idea** — total = 5×N WebSearch calls. Do NOT collapse to "one
+> WebSearch per idea" to save quota or turn-time; doing so silently bypasses
+> the SaaS-competitor archetype and produces false-🟢 verdicts on
+> SaaS-saturated lanes. The 2026-05-27 Corust miss happened because of
+> exactly this shortcut: 5 ideas × 1 query each instead of 5 ideas × 5
+> archetype queries. If 5×N exceeds the session WebSearch quota, ABORT the
+> run and tell the user to re-invoke with fewer ideas. Never silently degrade.
 
 ## Helpers (loaded once per run)
 

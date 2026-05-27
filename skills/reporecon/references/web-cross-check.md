@@ -39,6 +39,29 @@ Generate exactly 5 WebSearch queries in ONE LLM call (temperature 0). Each must 
 
 If any query returns nothing useful, the model MAY substitute a tighter variant ONCE. Do not exceed 5 WebSearch calls total per first search run.
 
+### HARD RULE — Forbidden qualifiers in SaaS-archetype queries
+
+Archetypes 1, 2, and 5 (Canonical-product, YC+funded, HN/Product Hunt) target the **closed-source SaaS market**. Their queries MUST NOT contain any of the following tokens (case-insensitive), even if those tokens appear in the user's sharpened sentence or preserved terms:
+
+- `open source`, `open-source`, `opensource`, `oss`
+- `github`, `site:github.com` (except archetype 4, which is *specifically* a GitHub Marketplace query)
+- `free`, `self-hosted`, `selfhosted`
+
+**Why:** Baking `"open source"` or `"github"` into a SaaS-competitor query is the exact mistake that caused the 2026-05-27 Corust miss (Rust-specialized AI editor SaaS, indexed on every Rust-AI listicle, invisible to a `"... open source github"`-qualified query). The user's idea may *be* "open source X", but the question the SaaS archetypes answer is "what does the market look like, OSS or not?" — those archetypes must look at the unfiltered market.
+
+Construction rule: when building archetypes 1/2/5, **strip** the forbidden tokens from the sharpened sentence and preserved terms before substitution. If the resulting query becomes incoherent (e.g. the entire sharpened sentence was "open source"), fall back to the differentiator keywords for the domain noun.
+
+Archetypes 3 (Awesome-list) and 4 (GitHub Marketplace) are GitHub-scoped by design and are exempt — they MAY use `github` / `site:github.com` since that's their entire point.
+
+### Pre-emission self-check
+
+Before emitting the verdict, the protocol MUST confirm:
+
+1. At least 3 of the 5 archetype queries were SaaS-archetype queries (1, 2, 5) AND none of them contains a forbidden qualifier.
+2. The candidate pool contains at least one `first-web-saas` candidate, OR the SaaS-archetype queries returned zero matching products (not zero results — zero *products*).
+
+If either check fails, the protocol MUST re-issue the SaaS-archetype queries with the forbidden tokens stripped, BEFORE writing the report. A 🟢 verdict emitted without this check is a protocol violation, not a clean result.
+
 ## Filtering rules
 
 For each WebSearch result:
