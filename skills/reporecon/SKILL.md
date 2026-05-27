@@ -57,20 +57,70 @@ echo "PLUGIN_ROOT=$PLUGIN_ROOT"
 
 Export `PLUGIN_ROOT` for all subsequent steps. Print it to chat for diagnostics.
 
+## Step -0.5: Cache lookup (skip with `--no-cache` / `--fresh`)
+
+Before any expensive work, check whether this exact sharpened idea has a
+previously-computed verdict within the past hour.
+
+The cache is keyed on a sha1 of the **normalized sharpened sentence**, not the
+raw user input. Two phrasings that sharpen to different sentences are treated
+as different ideas (intentional). To force a re-run, the user passes
+`--no-cache` or `--fresh` on the invocation; both flags skip every cache
+operation in this step.
+
+The key cannot be computed until Step 1 (Sharpen the Idea) completes, so this
+step is split:
+
+(a) After Step 1, once `sharpened_sentence` is in hand:
+    `CACHE_KEY=$(bash "$PLUGIN_ROOT/scripts/cache.sh" key "$sharpened_sentence")`
+    Status: `bash "$PLUGIN_ROOT/scripts/status.sh" tick cache-write "key=$CACHE_KEY"`.
+
+(b) Lookup:
+    `CACHED=$(bash "$PLUGIN_ROOT/scripts/cache.sh" get "$CACHE_KEY") || true`
+    On exit 0 (cache hit, mtime <1hr): print
+    `📦 cache hit — using previously-computed verdict` to chat, parse the
+    cached JSON, jump straight to Step 7 (Emit Report) using the cached
+    candidate set. Skip discovery, verify, judge.
+
+(c) On cache miss, continue normally. After Step 8 (verdict block to chat),
+    write the cache before returning:
+    `printf '%s' "$REPORT_JSON" | bash "$PLUGIN_ROOT/scripts/cache.sh" put "$CACHE_KEY"`
+    Status: `bash "$PLUGIN_ROOT/scripts/status.sh" done cache-write`.
+
+At the very start of Step 0 (Preflight), run a one-time prune of entries
+older than 24h: `bash "$PLUGIN_ROOT/scripts/cache.sh" prune`. Failure here is
+non-fatal — log and continue.
+
+If `--no-cache` or `--fresh` was passed, skip (a), (b), (c), and the prune.
+
 ## Step 0: Preflight
 
-Run `bash "$PLUGIN_ROOT/scripts/preflight.sh"`. If exit non-zero, print
-its stderr verbatim and STOP. On success parse the JSON
-`{core_remaining, search_remaining}` and keep it as `RATE_BEFORE` for the
-report header.
+`bash "$PLUGIN_ROOT/scripts/status.sh" start preflight`.
+
+Run `bash "$PLUGIN_ROOT/scripts/cache.sh" prune` once (non-fatal on failure).
+Then `bash "$PLUGIN_ROOT/scripts/preflight.sh"`. If exit non-zero, print
+its stderr verbatim, emit
+`bash "$PLUGIN_ROOT/scripts/status.sh" error preflight "<reason>"`, and STOP.
+On success parse the JSON `{core_remaining, search_remaining}` and keep it as
+`RATE_BEFORE` for the report header. Finish with
+`bash "$PLUGIN_ROOT/scripts/status.sh" done preflight`.
 
 ## Step 1: Sharpen the Idea
+
+`bash "$PLUGIN_ROOT/scripts/status.sh" start sharpen`.
 
 Read `$PLUGIN_ROOT/skills/reporecon/references/query-patterns.md`
 sections "Idea Sharpening" and "Proper-Noun Preservation Rule". ONE LLM call,
 temperature **0**. Emit the exact Sharpening Output Schema JSON
 (`sharpened_sentence`, `preserved_terms`, `differentiator_keywords`). If any
 preserved term is dropped, re-prompt once with the term list re-injected.
+
+`bash "$PLUGIN_ROOT/scripts/status.sh" done sharpen`.
+
+Now execute Step -0.5 sub-steps (a) and (b) — compute cache key and check for
+cache hit. On hit, jump to Step 7.
+
+`bash "$PLUGIN_ROOT/scripts/status.sh" start query-gen`.
 
 ## Step 2: Generate 7 Queries
 
@@ -87,11 +137,37 @@ directly, bypassing keyword ranking.
 
 Output: JSON array of 7 strings.
 
-## Step 3: Discover
+`bash "$PLUGIN_ROOT/scripts/status.sh" done query-gen`.
 
-For each query: `bash $PLUGIN_ROOT/scripts/gh-search.sh "<query>"`.
-Sleep 300ms between calls (PITFALLS.md #6 secondary-rate-limit guard). The
-loop runs **7 times** (one per archetype). Collect 7 JSON arrays.
+## Step 3: Discover (parallel)
+
+`bash "$PLUGIN_ROOT/scripts/status.sh" start discover`.
+
+Run all 7 gh-search calls **in parallel**, capped at concurrency 4 (gh allows
+~3 concurrent search calls before secondary-rate-limit; 4 is the safe ceiling
+with the new `gh_with_backoff` helper in `gh-search.sh` handling any hit).
+The previous 300ms-between-serial-calls sleep is gone — backoff is now
+reactive, not preventive.
+
+```bash
+# QUERIES is the 7-element array from Step 2
+mkdir -p /tmp/reporecon-q-$$
+printf '%s\n' "${QUERIES[@]}" | xargs -P 4 -I{} bash -c '
+  Q="$1"
+  SLUG=$(printf "%s" "$Q" | sha1sum | head -c 8)
+  bash "$PLUGIN_ROOT/scripts/gh-search.sh" "$Q" \
+    > "/tmp/reporecon-q-$$/${SLUG}.json"
+' _ {}
+```
+
+Then collect every JSON file under `/tmp/reporecon-q-$$/` into the discovery
+pool. Per-query tick: `bash "$PLUGIN_ROOT/scripts/status.sh" tick discover "$i/7"`
+emitted by the xargs body if desired.
+
+If any `gh-search.sh` exits with code 78 (rate-limit exhausted after retry),
+ABORT the run with the script's stderr.
+
+`bash "$PLUGIN_ROOT/scripts/status.sh" done discover`.
 
 ## Step 3.5: Web Cross-Check (first-search baseline, MANDATORY)
 
@@ -115,12 +191,16 @@ To proceed:
 
 Then STOP. Do not emit any verdict, do not write any report.
 
-**If WebSearch IS available:** Generate exactly 5 WebSearch queries in ONE LLM
-call (temperature 0), per the 5 required archetypes in web-cross-check.md.
-Invoke `WebSearch` per query. If a single WebSearch call returns an error
-(network, quota, etc.), retry it once with a tightened query, then ABORT THE
-RUN with an error citing the failing query — do not produce a partial-coverage
-verdict.
+**If WebSearch IS available:** `bash "$PLUGIN_ROOT/scripts/status.sh" start web-cross-check`.
+Generate exactly 5 WebSearch queries in ONE LLM call (temperature 0), per the
+5 required archetypes in web-cross-check.md. Then invoke the `WebSearch`
+tool **5 TIMES IN PARALLEL** — issue all 5 calls in one assistant turn. The
+5 queries are independent; serializing them adds 15-20 seconds for no benefit
+and the WebSearch quota cap (5/run) is unchanged.
+
+If a single WebSearch call returns an error (network, quota, etc.), retry
+that one call once with a tightened query, then ABORT THE RUN with an error
+citing the failing query — do not produce a partial-coverage verdict.
 
 For each result, build a `web_candidate` JSON per the schema in
 web-cross-check.md. Apply filtering, dedupe by canonical name.
@@ -137,7 +217,11 @@ For each `web_candidate.url` that is NOT github.com:
 
 Skipping this step is a HARD ERROR. Silent skip is what caused v0.1.0 misses.
 
+`bash "$PLUGIN_ROOT/scripts/status.sh" done web-cross-check`.
+
 ## Step 4: Dedup + Rank
+
+`bash "$PLUGIN_ROOT/scripts/status.sh" start dedup-rank`.
 
 Apply the "Dedup & Ranking" rule from `query-patterns.md` to the **MERGED
 pool** (gh-pool + first-web GitHub candidates from Step 3.5): collect every
@@ -147,7 +231,11 @@ pool** (gh-pool + first-web GitHub candidates from Step 3.5): collect every
 The web-pool (`first-web-saas`) is judged separately via the rules in Step 6
 and does NOT participate in this dedup.
 
+`bash "$PLUGIN_ROOT/scripts/status.sh" done dedup-rank`.
+
 ## Step 5: Verify
+
+`bash "$PLUGIN_ROOT/scripts/status.sh" start verify`.
 
 For each of the 5 ranked candidates, run in parallel (`xargs -P 5` or
 background jobs + `wait`):
@@ -155,7 +243,15 @@ background jobs + `wait`):
 Drop any candidate whose script exits non-zero (404 — HARD RULE). Collect
 verified metadata JSON (including `verified_at` ISO timestamp).
 
+`bash "$PLUGIN_ROOT/scripts/status.sh" done verify`.
+
 ## Step 6: Judge per candidate
+
+`bash "$PLUGIN_ROOT/scripts/status.sh" start judge`.
+
+> **First-search judge stays sequential** — 5 candidates × ~15s = 75s,
+> subagent dispatch overhead would dominate. The parallel subagent fan-out
+> optimization applies to deep search only (Step DEEP-F).
 
 Read `$PLUGIN_ROOT/skills/reporecon/references/judge-rubric.md` (including
 the **Non-GitHub Competitor Rule (v0.2.0)** section). Now there are two pools
@@ -168,6 +264,13 @@ metadata JSON + first 3000 chars of README (PITFALLS.md #2: strip the user's
 original framing):
 `gh api "repos/{owner}/{repo}/readme" --jq .content | base64 -d | head -c 3000`.
 
+Augment the judge output schema (for the new humanized report template):
+`{axis_scores, rationale, cand_description_narrative, cand_overlap_narrative}` —
+the two new fields are 2-3-sentence prose strings describing (a) what the
+candidate does and (b) how it overlaps with the sharpened idea. Both fill
+template placeholders `{{CAND_DESCRIPTION_NARRATIVE}}` and
+`{{CAND_OVERLAP_NARRATIVE}}` in Step 7.
+
 **SaaS-pool** (provenance = `first-web-saas`): For EACH non-GitHub candidate,
 issue one judge call at temperature 0. Pass sharpened sentence + preserved
 terms + candidate `name` + `evidence_snippet` + `source_query`. **No README
@@ -175,6 +278,12 @@ content — there is no source code.** Use the same 5-axis rubric. Per the
 rubric's Non-GitHub Competitor Rule, label is **capped at
 `WORTH_INSPECTING`** at first search (cannot earn `LIKELY_MATCH` without clone
 evidence).
+
+Augment SaaS judge output schema with:
+`{axis_scores, rationale, cand_description_narrative, cand_overlap_narrative, cand_evidence_narrative}` —
+where `cand_evidence_narrative` is a prose conversion of the WebSearch
+snippet (NOT a verbatim quote — per PITFALLS.md #7). Fills the
+`{{CAND_EVIDENCE_NARRATIVE}}` placeholder.
 
 Collect `axis_scores` + `rationale` per candidate. **Derive
 `candidate_verdict` mechanically** from the threshold table in
@@ -201,7 +310,20 @@ If overall is 🟢 AND any candidate has any axis ≥2, re-judge up to 2 such
 candidates (highest `axis_sum` first) with the REVERSE FRAMING prompt from
 `judge-rubric.md`. Apply the downgrade rule (🟢 → 🟡) if triggered.
 
+### Narrative Lead (humanized report)
+
+After all per-candidate judging completes, issue **ONE additional LLM call**
+(temperature 0) to produce the report's `{{NARRATIVE_LEAD}}` — 2-3 prose
+sentences summarizing "here's what already exists in this space and how it
+overlaps with your idea". Inputs: sharpened sentence, the verified candidate
+set with their final verdicts + `cand_description_narrative` strings. Output
+schema: `{"narrative_lead": "<2-3 sentences>"}`.
+
+`bash "$PLUGIN_ROOT/scripts/status.sh" done judge`.
+
 ## Step 7: Emit Report
+
+`bash "$PLUGIN_ROOT/scripts/status.sh" start report`.
 
 Read `$PLUGIN_ROOT/skills/reporecon/references/report-template.md`.
 Derive the slug per the "Slug Derivation Rule" (with collision suffix). Then
@@ -209,6 +331,31 @@ Derive the slug per the "Slug Derivation Rule" (with collision suffix). Then
 
 Substitute every `{{PLACEHOLDER}}`. Each GitHub-pool candidate block MUST
 include `verified at {CAND_VERIFIED_AT}`.
+
+### Humanized placeholders (v0.4.0 report-template.md)
+
+Compute and substitute these new prose-first placeholders:
+
+- `{{VERDICT_HEADLINE}}` — derive per the headline lookup table in
+  `report-template.md` (the table keys off overall badge × candidate-count
+  buckets). Substitute the literal headline string.
+- `{{NARRATIVE_LEAD}}` — substitute the 2-3-sentence string emitted by the
+  Narrative-Lead LLM call at end of Step 6.
+- `{{CAND_DESCRIPTION_NARRATIVE}}` — per candidate, from the augmented judge
+  call output.
+- `{{CAND_OVERLAP_NARRATIVE}}` — per candidate, from the augmented judge call
+  output.
+- `{{CAND_FILE_PATHS_PROSE}}` — first-search has no clones, so substitute the
+  literal `_File-path evidence available after deep search._` (deep search
+  Step DEEP-F fills this with real bullets).
+- `{{CAND_EVIDENCE_NARRATIVE}}` — SaaS candidates only, from the augmented
+  SaaS-pool judge output.
+- `{{PROVENANCE_SUMMARY}}` — single-line summary computed from candidate
+  provenance counts, e.g.
+  `"3 from gh-search · 1 from web cross-check · 1 SaaS competitor"`.
+- `{{CAND_STALENESS_SUFFIX}}` — derive from `staleness.sh` per-candidate
+  output: empty string if no staleness; otherwise ` · stale-NN` or
+  ` · stale-NN · archived` per the suffix rules in `report-template.md`.
 
 **SaaS-pool emission:** Build the `{{SAAS_COMPETITORS_BLOCK}}` by
 concatenating one **Closed-Source / SaaS Candidate Block** (per
@@ -226,6 +373,8 @@ Use the **First-Search → Deep-Search Opt-In Footer** from `report-template.md`
 the overall verdict is 🟡 or 🔴; omit the opt-in footer when the verdict is
 🟢. Write via the `Write` tool to
 `./reporecon-reports/YYYY-MM-DD-<slug>.md`; never overwrite.
+
+`bash "$PLUGIN_ROOT/scripts/status.sh" done report`.
 
 ## Step 8: Verdict block to chat
 
@@ -255,6 +404,8 @@ Initialize the deep search run:
 - `RUN_ROOT=/tmp/reporecon/run-${RUN_TS}` ; `mkdir -p "$RUN_ROOT"`
 - `trap 'rm -rf "$RUN_ROOT"' EXIT INT TERM` — run-scoped cleanup (D2-06, D2-07).
 
+`bash "$PLUGIN_ROOT/scripts/status.sh" start boot-sweep`.
+
 ## Step DEEP-A: Boot-Time /tmp Sweep
 
 Run literally (per D2-07):
@@ -264,7 +415,11 @@ find /tmp/reporecon -mindepth 1 -maxdepth 1 -mmin +120 -exec rm -rf {} +
 Removes orphan dirs >120 min old from prior aborted runs. Failures here are
 non-fatal — log and continue.
 
-## Step DEEP-B: Discovery Expansion (gh api)
+`bash "$PLUGIN_ROOT/scripts/status.sh" done boot-sweep`.
+
+## Step DEEP-B: Discovery Expansion (gh api, parallel)
+
+`bash "$PLUGIN_ROOT/scripts/status.sh" start expand-discover`.
 
 Read `$PLUGIN_ROOT/skills/reporecon/references/deep-search-protocol.md`
 sections "Discovery Expansion" and "Dedupe Rule". Generate **10 queries in ONE
@@ -273,15 +428,34 @@ LLM call** (temperature 0) per the 10 archetypes in deep-search-protocol.md
 SIZE-BOUND, FORK-EXCLUDED, RECENT-ACTIVITY, STAR-BOUND, ORG-AUTHOR). Each query
 MUST include at least one preserved term verbatim.
 
-For each query: `bash $PLUGIN_ROOT/scripts/gh-search.sh "<query>"`.
-Sleep 400ms between calls. Collect 10 JSON arrays. Track gh rate budget delta
-(`gh api rate_limit` before/after).
+Run all 10 gh-search calls **in parallel**, capped at concurrency 4 (same
+guard as Step 3 — `gh_with_backoff` in `gh-search.sh` absorbs any secondary
+rate-limit). The previous 400ms inter-call sleep is gone.
 
-## Step DEEP-C: WebSearch Expansion
+```bash
+mkdir -p /tmp/reporecon-dq-$$
+printf '%s\n' "${DEEP_QUERIES[@]}" | xargs -P 4 -I{} bash -c '
+  Q="$1"
+  SLUG=$(printf "%s" "$Q" | sha1sum | head -c 8)
+  bash "$PLUGIN_ROOT/scripts/gh-search.sh" "$Q" \
+    > "/tmp/reporecon-dq-$$/${SLUG}.json"
+' _ {}
+```
+
+Collect 10 JSON files into the discovery pool. Track gh rate budget delta
+(`gh api rate_limit` before/after). On any exit 78 from `gh-search.sh`,
+ABORT.
+
+`bash "$PLUGIN_ROOT/scripts/status.sh" done expand-discover`.
+
+## Step DEEP-C: WebSearch Expansion (parallel)
+
+`bash "$PLUGIN_ROOT/scripts/status.sh" start web-expand`.
 
 Read `deep-search-protocol.md` section "WebSearch Protocol". Generate **5 WebSearch
 queries** (one LLM call, temperature 0) biased toward `site:github.com` and
-direct repo links. Invoke the `WebSearch` tool per query. Extract every
+direct repo links. Invoke the `WebSearch` tool **5 TIMES IN PARALLEL** — all
+5 calls in one assistant turn. Extract every
 `github.com/<owner>/<repo>` URL pattern from results. For each extracted URL:
 
 ```
@@ -292,7 +466,11 @@ Discard any candidate whose script exits non-zero (404 — HARD RULE per D2-04,
 T2-03). Capture verified metadata + `verified_at` timestamp. Never quote
 WebSearch snippet text into output — candidate URLs only.
 
+`bash "$PLUGIN_ROOT/scripts/status.sh" done web-expand`.
+
 ## Step DEEP-D: Dedupe + Select for Cloning
+
+`bash "$PLUGIN_ROOT/scripts/status.sh" start dedup-select`.
 
 Combine three candidate pools by `full_name` (case-insensitive):
 1. first search verified candidates (carry-forward, already verified — do NOT
@@ -307,7 +485,11 @@ Selection for cloning: take all first search `WORTH_INSPECTING` candidates + any
 deep search-discovered candidate whose description suggests overlap (LLM call,
 temperature 0, returns boolean per candidate). Cap at **8 candidates**.
 
+`bash "$PLUGIN_ROOT/scripts/status.sh" done dedup-select`.
+
 ## Step DEEP-E: Clone Loop
+
+`bash "$PLUGIN_ROOT/scripts/status.sh" start clone`.
 
 For each selected candidate, invoke (parallel up to 3 via `xargs -P 3`):
 
@@ -333,36 +515,73 @@ Capture exit code (0 = vapor) and stdout JSON
 vapor IS a mechanical override — set on the candidate; the LLM does NOT decide
 vapor.
 
-## Step DEEP-F: Deep-Search Judge per Candidate
+`bash "$PLUGIN_ROOT/scripts/status.sh" done clone`.
+
+## Step DEEP-F: Deep-Search Judge per Candidate (PARALLEL via subagents)
+
+`bash "$PLUGIN_ROOT/scripts/status.sh" start judge-deep`.
 
 Read `$PLUGIN_ROOT/skills/reporecon/references/judge-rubric.md`
 sections "Deep-Search 5-Level Verdict Derivation", "Deep-Search Evidence Rule (JDG-04
 Full)", "Deep-Search File Selection Algorithm", "Deep-Search Judge Prompt Template",
 and "Deep-Search Output Discipline".
 
-For each cloned candidate:
+For up to 8 cloned candidates, the per-candidate judge calls are independent.
+Instead of issuing 8 sequential LLM judge calls (~4 minutes total), spawn
+**one subagent per candidate** via the host's Agent / Task tool. Each
+subagent receives:
 
-1. Select files per the File Selection Algorithm (manifest + entry-point +
-   ≤8 top source files; total cap 10 — D2-12).
-2. For each selected file, read first 200 lines (D2-12). Run sanitization
-   (D2-13):
-   ```
-   sed -e 's/<!--.*-->//g' \
-       -e 's/\xE2\x80\x8B//g' -e 's/\xE2\x80\x8C//g' \
-       -e 's/\xE2\x80\x8D//g' -e 's/\xEF\xBB\xBF//g'
-   ```
-   Wrap each file in `<untrusted_content source="github.com/{owner}/{repo}/{path}">...</untrusted_content>`
-   (D2-11). README truncated to 3000 chars before sanitize/wrap.
-3. Issue ONE judge call (no batching — PITFALLS.md #1) at temperature 0 using
-   the Deep-Search Judge Prompt Template. Expected output schema:
-   `{axis_scores, rationale, file_paths, flag}`.
-4. If `flag == "suspected_injection"`: set candidate verdict to
-   `SUPERFICIAL_MATCH`, add report note "candidate skipped due to suspected
-   adversarial README" (per D2-14, T2-07).
-5. Otherwise compute `evidence_count = len(file_paths)`. Apply the deep search
-   mechanical derivation table — DO NOT let the LLM emit the verdict label
-   (per D2-15, JDG-03). Allowed deep search labels: `EXACT_MATCH`,
-   `SIGNIFICANT_OVERLAP`, `PARTIAL_OVERLAP`, `SUPERFICIAL_MATCH`, `VAPOR`.
+- The cloned-repo path (`$DEST`)
+- The sharpened sentence + preserved terms
+- The Deep-Search Judge Prompt Template (from `judge-rubric.md`)
+- The candidate's verified metadata JSON
+- The vapor-check result for that candidate
+- The File Selection Algorithm + sanitization pipeline (the subagent does
+  its own file selection, reads first 200 lines per file with the D2-13
+  sanitize, wraps each in `<untrusted_content source=...>...</untrusted_content>`
+  per D2-11, then issues exactly ONE judge LLM call internally at
+  temperature 0 — preserves "one judge call per candidate")
+
+And returns a single JSON object:
+```
+{
+  axis_scores,
+  rationale,
+  file_paths,
+  flag,
+  cand_description_narrative,
+  cand_overlap_narrative,
+  cand_file_paths_prose
+}
+```
+The last three are the prose strings the new humanized `report-template.md`
+expects (fill `{{CAND_DESCRIPTION_NARRATIVE}}`,
+`{{CAND_OVERLAP_NARRATIVE}}`, `{{CAND_FILE_PATHS_PROSE}}` in Step 9).
+`cand_file_paths_prose` is a bullet list of the form
+`path/to/file:LINE — <what this proves>` (one bullet per file_path).
+
+**Dispatch all up-to-8 subagents in ONE turn** (parallel tool calls). Wait
+for all to return before proceeding to Step DEEP-G. Per-candidate ticks:
+`bash "$PLUGIN_ROOT/scripts/status.sh" tick judge-deep "<owner/repo>"` as
+each subagent returns.
+
+If any subagent returns `flag == "suspected_injection"`: set candidate
+verdict to `SUPERFICIAL_MATCH`, add report note "candidate skipped due to
+suspected adversarial README" (per D2-14, T2-07).
+
+If any subagent errors or times out (>60s), retry it once with a fresh
+subagent. If retry fails, drop that candidate and surface it in the report
+under a "Candidates dropped (judge error)" section.
+
+**The mechanical verdict-derivation step happens in this orchestrator, NOT
+in the subagent** (per D2-15, JDG-03):
+
+5. For each returned `{axis_scores, file_paths, flag}`, compute
+   `evidence_count = len(file_paths)`. Apply the deep-search mechanical
+   derivation table to map `axis_sum` + `evidence_count` → verdict label.
+   Allowed labels: `EXACT_MATCH`, `SIGNIFICANT_OVERLAP`, `PARTIAL_OVERLAP`,
+   `SUPERFICIAL_MATCH`, `VAPOR`. The subagent emits scores + evidence only;
+   the orchestrator owns the label.
 6. If vapor-check exited 0 for this candidate: override verdict to `VAPOR`.
    If the axes would otherwise have suggested PARTIAL_OVERLAP+, set
    `vapor_transparency_suffix=" (axes suggested {LABEL})"` per D2-10.
@@ -378,7 +597,11 @@ the H1 badge per `references/report-template.md` "Verdict Badge Rules" —
 or all `VAPOR` → 🟡 (never downgrade to 🟢 once deep search has run — the user
 explicitly asked for deep inspection because first search said 🟡/🔴).
 
+`bash "$PLUGIN_ROOT/scripts/status.sh" done judge-deep`.
+
 ## Step DEEP-G: Your Angle Synthesis
+
+`bash "$PLUGIN_ROOT/scripts/status.sh" start your-angle`.
 
 Read `$PLUGIN_ROOT/skills/reporecon/references/report-template.md`
 section "Your Angle Section".
@@ -397,7 +620,11 @@ If `missing_features` is empty, set the bullet block to the literal
 `_No distinguishing features identified — your idea overlaps fully with existing candidates._`
 per D2-18.
 
+`bash "$PLUGIN_ROOT/scripts/status.sh" done your-angle`.
+
 ## Step 9: Emit Deep-Search Report (REWRITE first-search report)
+
+`bash "$PLUGIN_ROOT/scripts/status.sh" start report-rewrite`.
 
 Read `references/report-template.md` sections "Deep-Search Markdown Template
 (full file)", "Deep-Search Per-Candidate Block", "Your Angle Section", and
@@ -427,7 +654,15 @@ into deep search with no prior first-search in this session), create a new
 report with the full deep-search layout above.
 
 Substitute every `{{DEEP_*}}` and `{{ANGLE_*}}` and `{{CAND_PROVENANCE}}` /
-`{{CAND_FILE_PATHS}}` / `{{CAND_VAPOR_TRANSPARENCY_SUFFIX}}` placeholder.
+`{{CAND_FILE_PATHS}}` / `{{CAND_VAPOR_TRANSPARENCY_SUFFIX}}` placeholder, plus
+the v0.4.0 humanized placeholders: `{{VERDICT_HEADLINE}}`,
+`{{NARRATIVE_LEAD}}` (re-derive for deep-search via one new LLM call with
+deep-search verdicts as input), `{{CAND_DESCRIPTION_NARRATIVE}}`,
+`{{CAND_OVERLAP_NARRATIVE}}`, `{{CAND_FILE_PATHS_PROSE}}` (filled by
+DEEP-F subagent returns), `{{CAND_EVIDENCE_NARRATIVE}}` (SaaS candidates),
+`{{PROVENANCE_SUMMARY}}`, `{{CAND_STALENESS_SUFFIX}}`.
+
+`bash "$PLUGIN_ROOT/scripts/status.sh" done report-rewrite`.
 
 ## Step 10: Deep-search verdict block to chat
 
@@ -437,6 +672,12 @@ path, rate budget consumed (deep-search delta).
 
 ## Discipline
 
+- Cache is keyed on the **sharpened sentence**, not the raw input — so
+  "Email triage AI" and "AI email triage tool" hash to different keys
+  (intentional, since sharpening produces different sentences). To force a
+  re-run, the user passes `--no-cache` or `--fresh`.
+- All status ticks via `scripts/status.sh` go to **stderr** so stdout stays
+  clean for JSON pipelines.
 - Temperature 0 every LLM call (JDG-07); else "Respond deterministically." in prompt.
 - **HARD RULE:** no URL without verify-repo.sh 200 OK (PITFALLS.md #11).
 - One candidate per judge call (PITFALLS.md #1).
