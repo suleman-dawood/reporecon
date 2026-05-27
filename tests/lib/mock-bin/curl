@@ -1,0 +1,24 @@
+#!/usr/bin/env bash
+# Mock curl for unit tests.
+#
+# Env interface:
+#   MOCK_CURL_CODE   HTTP status code to emit (default 200)
+#   MOCK_CURL_URL    Final URL to emit (default https://example.com)
+#   MOCK_CURL_FAIL   If non-empty, exit with code 7 (connect refused). Set to a
+#                    number (6, 7, 28, 35) to mimic specific curl errors.
+#
+# The real verify-url.sh uses:
+#   curl -sS -L --max-time 10 --max-redirs 5 -o /dev/null -w '%{http_code}|%{url_effective}' <url>
+# So this mock emits "<code>|<url>" to stdout (or to -o target if redirected).
+set -euo pipefail
+
+if [ -n "${MOCK_CURL_FAIL:-}" ]; then
+  case "$MOCK_CURL_FAIL" in
+    6|7|28|35) exit "$MOCK_CURL_FAIL" ;;
+    *) exit 7 ;;
+  esac
+fi
+
+CODE="${MOCK_CURL_CODE:-200}"
+URL="${MOCK_CURL_URL:-https://example.com}"
+printf '%s|%s' "$CODE" "$URL"
