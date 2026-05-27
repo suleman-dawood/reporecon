@@ -143,9 +143,9 @@ declare -a SUMMARY_ROWS=()
 
 for f in "${fixtures[@]}"; do
   fixture_name="$(basename "$f" .json)"
-  # Skip Tier 2 stub fixtures — handled by the Tier 2 block below.
+  # Skip deep search stub fixtures — handled by the deep search block below.
   case "$fixture_name" in
-    tier2-*) continue ;;
+    deep-*) continue ;;
   esac
   scenario=$(jq -r '.scenario' "$f")
   idea=$(jq -r '.idea' "$f")
@@ -214,12 +214,12 @@ echo "=== Goldens summary ==="
 for row in "${SUMMARY_ROWS[@]}"; do echo "  $row"; done
 
 # ============================================================
-# Tier 2 stub mode (always runs; no network)
+# deep search stub mode (always runs; no network)
 # Covers D2-21..D2-24 deterministic gates: TST-03 sanitization, TST-04 vapor.
 # ============================================================
 
 echo
-echo "===== Tier 2 stub-mode tests ====="
+echo "===== deep search stub-mode tests ====="
 
 T2_FAIL=0
 TOTAL_FAIL=0
@@ -264,7 +264,7 @@ else
 fi
 
 # Golden: sanitization pipeline on planted-injection-readme.md (TST-03)
-# Apply the SKILL.md Step T2-F sanitization pipeline and assert:
+# Apply the SKILL.md Step DEEP-F sanitization pipeline and assert:
 # - zero-width chars are stripped
 # - HTML comments are stripped
 INJECTION_FIXTURE="$REPO_ROOT/tests/fixtures/planted-injection-readme.md"
@@ -289,34 +289,34 @@ else
   echo "SKIP: planted-injection-readme.md missing"
 fi
 
-echo "Tier 2 stub: $T2_FAIL failures"
+echo "deep search stub: $T2_FAIL failures"
 
 # ============================================================
-# Tier 2 real-network mode (gated by RUN_REAL=1)
+# deep search real-network mode (gated by RUN_REAL=1)
 # Per D2-23: default invocation MUST NOT burn gh API quota.
 # ============================================================
 
 T2_REAL_FAIL=0
 if [ "${RUN_REAL:-0}" = "1" ]; then
   echo
-  echo "===== Tier 2 real-network tests (RUN_REAL=1) ====="
+  echo "===== deep search real-network tests (RUN_REAL=1) ====="
 
-  if [ ! -x "$REPO_ROOT/tests/scripts/invoke-skill-tier2.sh" ]; then
-    echo "SKIP: tests/scripts/invoke-skill-tier2.sh missing — Tier 2 real-network requires the skill invocation harness"
+  if [ ! -x "$REPO_ROOT/tests/scripts/invoke-skill-deep.sh" ]; then
+    echo "SKIP: tests/scripts/invoke-skill-deep.sh missing — deep search real-network requires the skill invocation harness"
     T2_REAL_FAIL=0
   else
-    # For each existing Tier 1 fixture, opt into Tier 2 and time the run.
-    # T2-10 / D2-24: total Tier 2 must complete in ≤10 minutes (600s) per fixture.
+    # For each existing first search fixture, opt into deep search and time the run.
+    # T2-10 / D2-24: total deep search must complete in ≤10 minutes (600s) per fixture.
     for fixture in "$FIXTURE_DIR"/*.json; do
       fname=$(basename "$fixture" .json)
-      # Skip tier2-vapor / tier2-injection — they are stub-only.
+      # Skip deep-vapor / deep-injection — they are stub-only.
       case "$fname" in
-        tier2-*) continue ;;
+        deep-*) continue ;;
       esac
       BANDS_FOR_FIXTURE=()
       for run in 1 2 3; do
         start=$(date +%s)
-        REPORT_PATH=$(bash "$REPO_ROOT/tests/scripts/invoke-skill-tier2.sh" "$fixture" 2>&1 | tail -1)
+        REPORT_PATH=$(bash "$REPO_ROOT/tests/scripts/invoke-skill-deep.sh" "$fixture" 2>&1 | tail -1)
         rc=$?
         end=$(date +%s)
         elapsed=$((end - start))
@@ -351,19 +351,19 @@ if [ "${RUN_REAL:-0}" = "1" ]; then
     done
   fi
 
-  echo "Tier 2 real-network: $T2_REAL_FAIL failures"
+  echo "deep search real-network: $T2_REAL_FAIL failures"
 else
   echo
-  echo "Tier 2 real-network tests SKIPPED (set RUN_REAL=1 to enable; consumes gh quota)"
+  echo "deep search real-network tests SKIPPED (set RUN_REAL=1 to enable; consumes gh quota)"
 fi
 
 TOTAL_FAIL=$((T2_FAIL + T2_REAL_FAIL))
 
 echo ""
 if (( OVERALL_PASS == 1 )) && (( TOTAL_FAIL == 0 )); then
-  echo "RESULT: PASS (TST-02 stability + band-correctness + T1-09 90s budget + Tier 2 gates all satisfied)"
+  echo "RESULT: PASS (TST-02 stability + band-correctness + T1-09 90s budget + deep search gates all satisfied)"
   exit 0
 else
-  echo "RESULT: FAIL (Tier 1 OVERALL_PASS=$OVERALL_PASS, Tier 2 failures=$TOTAL_FAIL)" >&2
+  echo "RESULT: FAIL (first search OVERALL_PASS=$OVERALL_PASS, deep search failures=$TOTAL_FAIL)" >&2
   exit 1
 fi
