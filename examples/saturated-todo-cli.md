@@ -74,11 +74,11 @@ Staleness: none
 
 > README: "taskcrab is a CLI task manager in Rust with TUI mode" — covers core_function and approach, scoped slightly larger via TUI.
 
-## Tier 2 Inspection
+## Deep-Search Inspection
 
 ### example-dev/cli-todo-rust
 
-[https://github.com/example-dev/cli-todo-rust](https://github.com/example-dev/cli-todo-rust) — verified at 2025-11-14T19:48:02Z — provenance: tier1
+[https://github.com/example-dev/cli-todo-rust](https://github.com/example-dev/cli-todo-rust) — verified at 2025-11-14T19:48:02Z — provenance: first
 
 **Verdict:** EXACT_MATCH
 
@@ -101,7 +101,7 @@ Staleness: none
 
 ### rustacean-tools/rust-todoman
 
-[https://github.com/rustacean-tools/rust-todoman](https://github.com/rustacean-tools/rust-todoman) — verified at 2025-11-14T19:48:14Z — provenance: tier1
+[https://github.com/rustacean-tools/rust-todoman](https://github.com/rustacean-tools/rust-todoman) — verified at 2025-11-14T19:48:14Z — provenance: first
 
 **Verdict:** SIGNIFICANT_OVERLAP
 
@@ -132,14 +132,14 @@ The space is saturated for plain CLI todo managers in Rust — your wedge has to
 - Two-way calendar integration (CalDAV / Google Calendar sync, not just iCal export)
 - Polished interactive TUI with mouse support and theming presets
 
-## Tier 2 Inspection Stats
+## Deep-Search Inspection Stats
 
 - Clones attempted: 2
 - Clones succeeded: 2
 - Clones skipped: 0 (oversize/timeout/LFS/injection)
-- gh rate budget (core) Tier 2 delta: -12
-- gh rate budget (search) Tier 2 delta: 0
+- gh rate budget (core) deep-search delta: -12
+- gh rate budget (search) deep-search delta: 0
 
 ## What's Next?
 
-> Tier 2 inspection complete. 2 candidates cloned; 0 skipped (oversize/timeout/LFS/injection). See **Your Angle** section above for differentiation guidance.
+> Deep-search inspection complete. 2 candidates cloned; 0 skipped (oversize/timeout/LFS/injection). See **Your Angle** section above for differentiation guidance.

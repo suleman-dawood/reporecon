@@ -92,11 +92,11 @@ Staleness: none
 
 > README claims "the ultimate side-by-side dashboard for OpenAI, Anthropic, Google, and 12 other providers" — promising on paper, repo otherwise sparse.
 
-## Tier 2 Inspection
+## Deep-Search Inspection
 
 ### evalkit/promptfoo-similar
 
-[https://github.com/evalkit/promptfoo-similar](https://github.com/evalkit/promptfoo-similar) — verified at 2025-11-14T20:39:21Z — provenance: tier1
+[https://github.com/evalkit/promptfoo-similar](https://github.com/evalkit/promptfoo-similar) — verified at 2025-11-14T20:39:21Z — provenance: first
 
 **Verdict:** PARTIAL_OVERLAP
 
@@ -120,7 +120,7 @@ Staleness: none
 
 ### labs-oss/llm-eval-cli
 
-[https://github.com/labs-oss/llm-eval-cli](https://github.com/labs-oss/llm-eval-cli) — verified at 2025-11-14T20:39:33Z — provenance: tier1
+[https://github.com/labs-oss/llm-eval-cli](https://github.com/labs-oss/llm-eval-cli) — verified at 2025-11-14T20:39:33Z — provenance: first
 
 **Verdict:** SUPERFICIAL_MATCH
 
@@ -142,7 +142,7 @@ Staleness: none
 
 ### research/prompt-bench-framework
 
-[https://github.com/research/prompt-bench-framework](https://github.com/research/prompt-bench-framework) — verified at 2025-11-14T20:39:44Z — provenance: tier1
+[https://github.com/research/prompt-bench-framework](https://github.com/research/prompt-bench-framework) — verified at 2025-11-14T20:39:44Z — provenance: first
 
 **Verdict:** SUPERFICIAL_MATCH
 
@@ -164,7 +164,7 @@ Staleness: stale-12mo
 
 ### vibes/llm-eval-ultra
 
-[https://github.com/vibes/llm-eval-ultra](https://github.com/vibes/llm-eval-ultra) — verified at 2025-11-14T20:39:55Z — provenance: tier2-gh
+[https://github.com/vibes/llm-eval-ultra](https://github.com/vibes/llm-eval-ultra) — verified at 2025-11-14T20:39:55Z — provenance: deep-gh
 
 **Verdict:** VAPOR (axes suggested PARTIAL_OVERLAP)
 
@@ -195,14 +195,14 @@ Every inspected competitor either lacks a dashboard or treats comparison as per-
 - Save-and-share permalink for a comparison run (no auth required to view)
 - Diff highlighting between completions at the token / sentence level
 
-## Tier 2 Inspection Stats
+## Deep-Search Inspection Stats
 
 - Clones attempted: 4
 - Clones succeeded: 4
 - Clones skipped: 0 (oversize/timeout/LFS/injection)
-- gh rate budget (core) Tier 2 delta: -22
-- gh rate budget (search) Tier 2 delta: -1
+- gh rate budget (core) deep-search delta: -22
+- gh rate budget (search) deep-search delta: -1
 
 ## What's Next?
 
-> Tier 2 inspection complete. 4 candidates cloned; 0 skipped (oversize/timeout/LFS/injection). See **Your Angle** section above for differentiation guidance.
+> Deep-search inspection complete. 4 candidates cloned; 0 skipped (oversize/timeout/LFS/injection). See **Your Angle** section above for differentiation guidance.
