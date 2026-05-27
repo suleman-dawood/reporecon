@@ -24,32 +24,80 @@ header are deterministic and reproducible.
 - One pass only. Do not re-sharpen mid-run.
 - The sharpened sentence is the canonical idea for the rest of the run.
 
-### Proper-Noun Preservation Rule
+### Proper-Noun and Jargon Preservation Rule (v0.3.0)
 
 Sharpening is the highest-risk step for distortion (see PITFALLS.md, Pitfall 10).
 LLMs over-generalize: "NDIS invoice validator" silently becomes "billing
 compliance tool," queries broaden, real matches disappear, the run lies to the
-user. The proper-noun guard prevents this.
+user. The preservation guard prevents this.
 
-**Extract from the raw input, verbatim, all of:**
+The sharpening step MUST preserve, verbatim, ANY term in the user's input that
+matches ANY of these patterns. Preserved terms appear in the
+`preserved_terms` array and MUST appear verbatim in at least one of the 7
+generated queries (except TOPIC-TAG which is tags-only).
 
-1. **Acronyms** matching `[A-Z]{2,}` — examples: `NDIS`, `FSANZ`, `HIPAA`,
-   `OAuth`, `JWT`, `IAM`, `ACL`.
-2. **Capitalized multi-word phrases** — examples: `Microsoft Graph`,
-   `Google Cloud Build`, `Australian Tax Office`.
-3. **Tech names with mixed-case or special chars** — examples: `Node.js`,
-   `scikit-learn`, `Next.js`, `PyTorch`, `gRPC`, `pnpm`.
+#### Preservation patterns
 
-These form the **preserved terms** list. The rule:
+1. **ALL-CAPS acronyms** — `\b[A-Z]{2,}\b` (NDIS, HIPAA, FSANZ, LLM, RAG, MCP,
+   API, SDK, UI, CLI).
+2. **CamelCase / PascalCase product names** — any word containing both an
+   uppercase letter and a lowercase letter where the first letter is uppercase
+   or follows a non-word character. Matches `VelocityIQ`, `ShipFast`,
+   `BetterAuth`, `RepoRecon`. Heuristic regex:
+   `\b[A-Z][a-z]+(?:[A-Z][a-z0-9]+)+\b` plus single-segment PascalCase that
+   appears in product-name position (the model decides via context — if the
+   user says "I'm building Shortwave", `Shortwave` is preserved even though
+   the regex only catches multi-segment forms).
+3. **CamelCase with embedded lowercase prefix** — `dApp`, `iOS`, `eBPF`,
+   `nVIDIA`. Heuristic: word starts with 1–2 lowercase letters followed by
+   uppercase letter.
+4. **Hyphenated technical terms** — any token containing a hyphen between
+   alphanumeric characters: `code-gen`, `retrieval-augmented`,
+   `chain-of-thought`, `side-by-side`, `drop-in`, `vapor-check`, `post-cutoff`.
+5. **Version-suffixed identifiers** — `\b[A-Za-z]+-?\d+(?:\.\d+)*(?:[a-z])?\b`:
+   `GPT-4o`, `Claude-3.5`, `Llama-3`, `Web3`, `Python3`, `Postgres15`, `IPv6`.
+6. **Quoted phrases** — anything the user wraps in single or double quotes,
+   preserved as a single multi-word term. "side-by-side TUI" stays as one
+   preserved term, not three.
+7. **Capitalised multi-word phrases** — `\b([A-Z][a-z]+(?:\s+[A-Z][a-z]+){1,3})\b`:
+   "Smart Connections", "Issue Triage", "Pull Request". Treated as a single
+   compound preserved term (joined by space when emitted). Also covers
+   classic proper nouns like `Microsoft Graph`, `Google Cloud Build`,
+   `Australian Tax Office`.
+8. **Domain-specific jargon list** — the model SHOULD also preserve any of
+   these terms verbatim when they appear in the user's input, even if they
+   don't match the patterns above: `RAG`, `MCP`, `agentic`, `multi-agent`,
+   `chain-of-thought`, `CoT`, `embedding`, `tool-use`, `function-calling`,
+   `headless`, `daemon`, `sidecar`, `webhook`, `plugin`, `marketplace`,
+   `self-hostable`, `air-gapped`, `zero-shot`, `few-shot`, `fine-tune`,
+   `LoRA`, `PEFT`, `vector-db`, `pgvector`, `embeddings`, `transformer`,
+   `attention`, `cron`, `idempotent`, `eventual-consistency`,
+   `CODEOWNERS`, `monorepo`, `polyglot`, `sandbox`.
+9. **Tech names with mixed-case or special chars** — `Node.js`, `scikit-learn`,
+   `Next.js`, `PyTorch`, `gRPC`, `pnpm` (covered by patterns 2/3/4 above but
+   listed for clarity).
 
-> Every preserved term MUST appear verbatim in the sharpened sentence AND in at
-> least one of the 5 generated queries.
+#### What gets emitted
+
+`preserved_terms` is a JSON array of strings. Order matches first appearance
+in the user's idea. Deduplicate case-insensitively. If two preserved terms
+overlap (e.g. "Smart Connections" includes "Smart"), prefer the LONGER
+compound. Cap at 8 preserved terms — if more matches exist, choose the most
+distinctive (lowest expected document frequency).
+
+#### Verification
+
+After generating `preserved_terms`, the model MUST re-scan the sharpened
+sentence and confirm every preserved term appears verbatim. If any term was
+paraphrased away by the sharpening LLM, re-prompt ONCE with the term list
+re-injected and a stricter "do not paraphrase the following terms" preamble.
+If a term is still dropped on the retry, surface to the user.
 
 **Example:**
 
 ```
 Raw:        "NDIS invoice validator for Australian healthcare providers"
-Preserved:  ["NDIS"]
+Preserved:  ["NDIS", "Australian"]
 Sharpened:  "A CLI for Australian healthcare providers that validates NDIS
             invoices against jurisdiction rules"
 Keywords:   ["NDIS", "invoice-validation", "healthcare-compliance"]
@@ -63,10 +111,6 @@ Sharpened (BAD):  "A tool that checks disability scheme billing"
                   -- "Australian" dropped
                   -- queries will now miss every NDIS-specific repo
 ```
-
-If the sharpener output drops a preserved term, the SKILL.md protocol re-prompts
-once with the explicit term list re-injected. If it drops it again, surface to
-the user.
 
 ### Sharpening Output Schema
 
