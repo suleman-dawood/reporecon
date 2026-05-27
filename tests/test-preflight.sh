@@ -26,10 +26,10 @@ export MOCK_GH_FIXTURE='{"resources":{"core":{"remaining":500},"search":{"remain
 OUT=$(bash "$ROOT/scripts/preflight.sh" 2>/dev/null); RC=$?
 assert_exit_code 3 "$RC" "low search budget exits 3"
 
-# Case: malformed JSON → exits non-zero (jq fails under set -e, or parse-guard exits 2)
+# Case: malformed JSON → exit 2 (jq -e guard converts parse failure to exit 2)
 export MOCK_GH_FIXTURE='not-json'
 OUT=$(bash "$ROOT/scripts/preflight.sh" 2>/dev/null); RC=$?
-assert_match '^[1-9][0-9]*$' "$RC" "malformed rate_limit JSON exits non-zero (rc=$RC)"
+assert_exit_code 2 "$RC" "malformed rate_limit JSON exits 2"
 
 # Case: gh api rate_limit fails → exit 2
 unset MOCK_GH_FIXTURE

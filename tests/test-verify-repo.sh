@@ -42,12 +42,11 @@ bash "$ROOT/scripts/verify-repo.sh" "ghost/none" >/dev/null 2>&1; RC=$?
 assert_exit_code 1 "$RC" "404 → exit 1"
 unset MOCK_GH_FAIL
 
-# Case: rate-limit exhaustion → exits non-zero (script returns 1; the inner
-# gh_with_backoff returns 78 but verify-repo's `if !` condition swallows the
-# specific code into the generic exit 1 path). Behavior is documented here.
+# Case: rate-limit exhaustion → exit 78 (documented code from gh_with_backoff,
+# propagated through the call site).
 export MOCK_GH_FAIL=secondary
 bash "$ROOT/scripts/verify-repo.sh" "foo/bar" >/dev/null 2>&1; RC=$?
-assert_match '^[1-9][0-9]*$' "$RC" "rate-limit exhaustion exits non-zero (rc=$RC)"
+assert_exit_code 78 "$RC" "rate-limit exhaustion exits 78"
 unset MOCK_GH_FAIL
 
 # Case: missing arg → exit non-zero
