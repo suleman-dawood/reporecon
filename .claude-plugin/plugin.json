@@ -1,6 +1,6 @@
 {
   "$schema": "https://json.schemastore.org/claude-code-plugin-manifest.json",
-  "name": "reporecon",
+  "name": "githubpill",
   "version": "0.5.2",
   "description": "Validate whether your project idea already exists on GitHub before you build it.",
   "author": {
@@ -16,7 +16,7 @@
     "validation",
     "research",
     "skill",
-    "reporecon"
+    "githubpill"
   ],
   "hooks": {
     "PreToolUse": [

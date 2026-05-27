@@ -1,5 +1,5 @@
 {
-  "name": "reporecon",
+  "name": "githubpill",
   "version": "0.5.2",
   "description": "Claude Code plugin to validate whether your GitHub project idea already exists before you build it.",
   "license": "MIT",
@@ -21,7 +21,7 @@
     "reconnaissance",
     "prior-art",
     "validation",
-    "reporecon"
+    "githubpill"
   ],
   "private": true
 }
