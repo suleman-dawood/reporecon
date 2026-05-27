@@ -1,19 +1,19 @@
-# Tier 1 Judge Rubric
+# First-Search Judge Rubric
 
-This document defines the trust-critical judgment machinery for RepoRecon Tier 1.
+This document defines the trust-critical judgment machinery for RepoRecon's first-search pass.
 SKILL.md MUST Read this file before issuing any judge call. The rubric exists to
 defeat two known failure modes: judge flip-flop on borderline repos (Pitfall 1)
 and confirmation bias toward "your idea is unique" (Pitfall 2).
 
-## Scope: Tier 1 Only
+## Scope: First Search Only
 
-Tier 1 judges from **README + GitHub API metadata ONLY**. There are no clones,
-no source files, no file-path evidence available at this tier. Therefore Tier 1
-verdicts are **capped at `WORTH_INSPECTING`**. The full 5-level taxonomy
+First search judges from **README + GitHub API metadata ONLY**. There are no clones,
+no source files, no file-path evidence available at this tier. Therefore first-search
+verdicts are **capped at `WORTH_INSPECTING`** (the Tier 1 cap invariant). The full 5-level taxonomy
 (`EXACT_MATCH` / `SIGNIFICANT_OVERLAP` / `PARTIAL_OVERLAP` / `SUPERFICIAL_MATCH` /
-`VAPOR`) is **Phase 2 only** and requires clone-based file-path evidence.
+`VAPOR`) is **deep-search only** and requires clone-based file-path evidence.
 
-**Never emit Phase 2 verdict labels in Tier 1 output.** Tier 1's allowed verdict
+**Never emit deep-search verdict labels in first-search output.** First search's allowed verdict
 labels are exactly: `LIKELY_MATCH`, `WORTH_INSPECTING`, `UNRELATED`.
 
 ## The 5 Axes
@@ -34,14 +34,14 @@ schema all key on these exact strings.
 hints from the metadata block are acceptable evidence). The other four axes
 MUST cite README content for any score ≥2.
 
-## Evidence Requirement (Tier 1)
+## Evidence Requirement (First Search)
 
 Any axis scored **≥2** MUST cite one specific phrase, sentence, or claim from
 the candidate's README, description, or topics. The cited evidence goes in the
 JSON `rationale` field.
 
-- **No file paths in Tier 1.** File-path citations require clones and ship in
-  Phase 2.
+- **No file paths in first search.** File-path citations require clones and ship in
+  deep search.
 - If an axis is scored ≥2 with no README/description/topic evidence, the
   derivation step caps that axis at **1**.
 - `activity` is exempt — metadata fields (`pushed_at`, `archived`,
@@ -180,9 +180,9 @@ Web-cross-check feeds candidates tagged `provenance: tier1-web-saas` (closed-sou
 ### Scoring
 Score each non-GitHub candidate on the **same 5 axes** (core_function, target_audience, scope, approach, activity) using ONLY the WebSearch evidence snippet + the candidate's landing-page metadata. Pass the candidate's name + evidence_snippet + source_query into the judge prompt. The same anti-novelty framing applies.
 
-### Verdict cap (Tier 1)
+### Verdict cap (First Search)
 - Without clone evidence, a non-GitHub candidate's verdict label is capped at `WORTH_INSPECTING` (Tier 1 cap, same as gh candidates).
-- In Tier 2: cap stays at `SUPERFICIAL_MATCH` for non-GitHub candidates because file-path evidence is unobtainable (no clone). This honors JDG-04: PARTIAL_OVERLAP+ requires file paths.
+- In deep search: cap stays at `SUPERFICIAL_MATCH` for non-GitHub candidates because file-path evidence is unobtainable (no clone). This honors JDG-04: PARTIAL_OVERLAP+ requires file paths.
 
 ### Overall verdict aggregation (revised)
 The overall run verdict considers BOTH gh-pool and web-pool candidates:
@@ -195,9 +195,9 @@ The overall run verdict considers BOTH gh-pool and web-pool candidates:
 ### Why "axis_sum ≥ 10" not a label
 A non-GitHub candidate can't earn `LIKELY_MATCH` directly (cap rule above). The aggregation rule lets a strong SaaS signal still drive the overall verdict without lying about the per-candidate label.
 
-## Tier 2 5-Level Verdict Derivation
+## Deep-Search 5-Level Verdict Derivation
 
-Tier 2 produces the full 5-level verdict taxonomy. The Tier 1 cap (above) still
+Deep search produces the full 5-level verdict taxonomy. The Tier 1 cap (above) still
 holds for Tier 1 invocations — Tier 2 labels appear ONLY in Tier 2 output.
 
 The five labels:
@@ -208,7 +208,7 @@ The five labels:
 - `SUPERFICIAL_MATCH` — similar keywords, divergent implementation. Default when evidence is thin.
 - `VAPOR` — README claims unsupported by code (mechanically derived from `vapor-check.sh`, NOT the LLM).
 
-Compute (per candidate, Tier 2 only):
+Compute (per candidate, deep search only):
 
 - `axis_sum = core_function + target_audience + scope + approach + activity` (0-15)
 - `core_pair = core_function + target_audience` (0-6)
@@ -217,7 +217,7 @@ Compute (per candidate, Tier 2 only):
 
 Threshold table (evaluated top-to-bottom; first match wins):
 
-| Tier 2 verdict | Condition |
+| Deep-search verdict | Condition |
 |----------------|-----------|
 | `VAPOR` | `is_vapor == true` (mechanical override per D2-10) |
 | `EXACT_MATCH` | `core_pair >= 6` AND `axis_sum >= 13` AND `evidence_count >= 2` |
@@ -229,9 +229,9 @@ This derivation is pure arithmetic — the LLM never emits `candidate_verdict`. 
 emits axis scores, rationale, file_paths, and the injection flag; SKILL.md
 computes the verdict.
 
-## Tier 2 Evidence Rule (JDG-04 Full)
+## Deep-Search Evidence Rule (JDG-04 Full)
 
-Any Tier 2 verdict at `PARTIAL_OVERLAP` or stronger requires `evidence_count >= 1`
+Any deep-search verdict at `PARTIAL_OVERLAP` or stronger requires `evidence_count >= 1`
 — at least one cited file path from the clone. If the judge fails to cite any
 path, the derivation step caps the verdict at `SUPERFICIAL_MATCH` (or `VAPOR` if
 the `vapor-check.sh` result was 0). This is the answer to PITFALLS.md #1 (judge
@@ -241,7 +241,7 @@ Cite format: `path/to/file.ext:LINE` where `LINE` is the 1-indexed line number
 of the relevant code or claim. Path is relative to clone root. The judge JSON
 schema's `file_paths` field is an array of strings in this exact format.
 
-## Tier 2 Vapor Transparency Rule
+## Deep-Search Vapor Transparency Rule
 
 If `is_vapor == true` AND axes would otherwise suggest `PARTIAL_OVERLAP` or
 higher, the candidate verdict is `VAPOR` BUT the report MUST display both
@@ -249,7 +249,7 @@ labels: `VAPOR (axes suggested {LABEL})` where `{LABEL}` is the verdict the
 threshold table would have produced absent the vapor override. Transparency
 over hiding signal — per D2-10.
 
-## Tier 2 File Selection Algorithm
+## Deep-Search File Selection Algorithm
 
 Per D2-17, the judge inspects up to **10 files per repo** (matches the D2-12
 limit). Selection order:
@@ -265,9 +265,9 @@ limit). Selection order:
 **Total cap: 10 files per repo.** If steps 1+2 already yield N files,
 step 3 contributes at most `10 - N` more.
 
-## Tier 2 Judge Prompt Template
+## Deep-Search Judge Prompt Template
 
-SKILL.md renders this template per Tier 2 candidate. Re-uses Tier 1 inputs
+SKILL.md renders this template per deep-search candidate. Re-uses first-search inputs
 plus per-file untrusted_content blocks.
 
 ```
@@ -295,7 +295,7 @@ INPUTS:
   {{file_body_first_200_lines}}
   </untrusted_content>
 
-Score each axis 0-3 per the Tier 1 rubric in this document. For any score ≥2, cite a specific phrase from the README OR a `path/to/file.ext:LINE` from the clone as evidence. Score `target_audience` LAST.
+Score each axis 0-3 per the first-search rubric in this document. For any score ≥2, cite a specific phrase from the README OR a `path/to/file.ext:LINE` from the clone as evidence. Score `target_audience` LAST.
 
 Cite the relevant `path/to/file.ext:LINE` for each axis you score ≥2. Collect all unique cites into `file_paths`.
 
@@ -321,17 +321,17 @@ OUTPUT SCHEMA (exact):
 **Note:** `candidate_verdict` is intentionally absent from the schema — SKILL.md
 derives it mechanically via the threshold table above.
 
-## Tier 2 Output Discipline
+## Deep-Search Output Discipline
 
 - LLM still emits ONLY `axis_scores`, `rationale`, `file_paths`, and `flag`. The
-  `candidate_verdict` is derived mechanically by SKILL.md per the Tier 2
+  `candidate_verdict` is derived mechanically by SKILL.md per the deep-search
   threshold table.
 - `VAPOR` is set by SKILL.md from the `vapor-check.sh` exit code, NOT by the LLM.
 - If LLM emits `flag: "suspected_injection"`, SKILL.md sets verdict to
   `SUPERFICIAL_MATCH` with a report note "candidate skipped due to suspected
   adversarial README" — axes from that call are discarded.
-- Any Tier 2 verdict ≥ `PARTIAL_OVERLAP` without at least one `path/to/file.ext:LINE`
+- Any deep-search verdict ≥ `PARTIAL_OVERLAP` without at least one `path/to/file.ext:LINE`
   cite is capped at `SUPERFICIAL_MATCH` (or `VAPOR` if `is_vapor`).
 - Temperature 0 (D-32 carries forward).
-- Tier 2 reports MAY include Phase 2 verdict labels; the Tier 1 prohibition
-  applies only to Tier 1 invocations.
+- Deep-search reports MAY include Phase 2 verdict labels; the first-search prohibition
+  applies only to first-search invocations.
