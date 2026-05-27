@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# D2-06 / SCR-03: Safe shallow clone wrapper for Tier 2 deep inspection.
+# D2-06 / SCR-03: Safe shallow clone wrapper for deep-search inspection.
 #
 # Usage: safe-clone.sh <owner/repo>
 #

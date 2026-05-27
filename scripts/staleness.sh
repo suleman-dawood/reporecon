@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# staleness.sh — mechanical badge emitter for RepoRecon Tier 1.
+# staleness.sh — mechanical badge emitter for RepoRecon first search.
 #
 # Reads a metadata JSON string (as produced by verify-repo.sh) and emits
 # space-separated badge tags on stdout. Empty string if nothing fires.
