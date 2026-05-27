@@ -1,6 +1,6 @@
 # First-Search Query Patterns + Idea Sharpening
 
-This reference is loaded on-demand by `skills/reporecon/SKILL.md` during the
+This reference is loaded on-demand by `skills/githubpill/SKILL.md` during the
 **sharpen** (Step 1) and **query generation** (Step 2) phases of the first search
 protocol. Progressive disclosure: keep this open only while those steps run.
 
@@ -43,7 +43,7 @@ generated queries (except TOPIC-TAG which is tags-only).
 2. **CamelCase / PascalCase product names** — any word containing both an
    uppercase letter and a lowercase letter where the first letter is uppercase
    or follows a non-word character. Matches `VelocityIQ`, `ShipFast`,
-   `BetterAuth`, `RepoRecon`. Heuristic regex:
+   `BetterAuth`, `GithubPill`. Heuristic regex:
    `\b[A-Z][a-z]+(?:[A-Z][a-z0-9]+)+\b` plus single-segment PascalCase that
    appears in product-name position (the model decides via context — if the
    user says "I'm building Shortwave", `Shortwave` is preserved even though

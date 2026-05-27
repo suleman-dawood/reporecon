@@ -1,11 +1,11 @@
 # First-Search Report Template
 
-This reference is loaded on-demand by `skills/reporecon/SKILL.md` during the
+This reference is loaded on-demand by `skills/githubpill/SKILL.md` during the
 **emit report** step (Step 7) of the first search protocol.
 
-**Output path:** `./reporecon-reports/YYYY-MM-DD-<slug>.md`
+**Output path:** `./githubpill-reports/YYYY-MM-DD-<slug>.md`
 
-The skill creates `./reporecon-reports/` if it does not exist (`mkdir -p`). All
+The skill creates `./githubpill-reports/` if it does not exist (`mkdir -p`). All
 report files land there; nothing else in the working directory is touched.
 
 ## Slug Derivation Rule
@@ -29,7 +29,7 @@ If the derived slug is empty (e.g., sharpened sentence was all symbols), fall
 back to `untitled`.
 
 **Collision suffix:** if `YYYY-MM-DD-<slug>.md` already exists in
-`./reporecon-reports/`, try `YYYY-MM-DD-<slug>-2.md`, then `-3.md`, and so on —
+`./githubpill-reports/`, try `YYYY-MM-DD-<slug>-2.md`, then `-3.md`, and so on —
 the smallest integer `N ≥ 2` that does not collide. **Never overwrite an
 existing report.**
 

@@ -67,7 +67,7 @@ If either check fails, the protocol MUST re-issue the SaaS-archetype queries wit
 For each WebSearch result:
 - KEEP if the result's snippet contains AT LEAST one preserved term OR a verbatim variant of the differentiator keywords.
 - DISCARD if the result is a generic blog post listing tools, unless it cites a specific product by name with URL.
-- DISCARD if the URL is the user's own RepoRecon repo or this skill's documentation.
+- DISCARD if the URL is the user's own GithubPill repo or this skill's documentation.
 - DEDUPE by canonical product name (case-insensitive).
 
 ## Verification

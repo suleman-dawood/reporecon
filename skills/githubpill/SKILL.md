@@ -1,25 +1,25 @@
 ---
-name: reporecon
-description: Validate whether a project idea already exists on GitHub before you build it. Use when the user describes a project idea and asks if it already exists, says "validate my idea", "is there already a tool that does X", "does this exist on github", "prior art check", or invokes /reporecon. Returns a 🟢/🟡/🔴 verdict in ~90 seconds using gh api metadata only; deep-search opt-in extension clones top candidates and judges equivalence with file-path evidence (~10 min).
+name: githubpill
+description: Validate whether a project idea already exists on GitHub before you build it. Use when the user describes a project idea and asks if it already exists, says "validate my idea", "is there already a tool that does X", "does this exist on github", "prior art check", or invokes /githubpill. Returns a 🟢/🟡/🔴 verdict in ~90 seconds using gh api metadata only; deep-search opt-in extension clones top candidates and judges equivalence with file-path evidence (~10 min).
 allowed-tools: Bash, Read, WebSearch, Write
 ---
 
-# RepoRecon First-Search Protocol (≤10 gh api calls, ≤90s)
+# GithubPill First-Search Protocol (≤10 gh api calls, ≤90s)
 
-Run on `/reporecon <idea>` or matching trigger. Return a 🟢/🟡/🔴 verdict +
+Run on `/githubpill <idea>` or matching trigger. Return a 🟢/🟡/🔴 verdict +
 Markdown report with mechanically derived per-axis scores, ≤90s, `gh api`
 metadata only.
 
 > **HARD RULE:** No URL appears in any output without a verify-repo 200 OK
 > timestamped within this run. 404s drop the candidate entirely.
 
-**First, print to chat:** `RepoRecon first search starting…` so the user sees
+**First, print to chat:** `GithubPill first search starting…` so the user sees
 the skill activated.
 
 > **ONE IDEA PER REPORT.** If the user passes multiple ideas in a single
 > invocation, run the full first-search protocol independently for each idea and
 > write a **separate report file per idea** at
-> `./reporecon-reports/YYYY-MM-DD-<slug-per-idea>.md`. **Never combine
+> `./githubpill-reports/YYYY-MM-DD-<slug-per-idea>.md`. **Never combine
 > multiple ideas into a single batch report.** A consolidated chat-summary
 > table is fine; the on-disk artifacts must stay one-per-idea so they can be
 > linked, diffed, and re-run individually.
@@ -162,14 +162,14 @@ verify_url() {
 }
 ```
 
-Status output convention: emit `echo "[reporecon] start <stage>" >&2`,
-`echo "[reporecon] tick <stage> <n/N>" >&2`, `echo "[reporecon] done <stage>" >&2`,
-`echo "[reporecon] error <stage>: <reason>" >&2` between major steps. Stderr
+Status output convention: emit `echo "[githubpill] start <stage>" >&2`,
+`echo "[githubpill] tick <stage> <n/N>" >&2`, `echo "[githubpill] done <stage>" >&2`,
+`echo "[githubpill] error <stage>: <reason>" >&2` between major steps. Stderr
 only — keeps stdout clean for JSON pipelines.
 
 ## Step 0: Preflight
 
-`echo "[reporecon] start preflight" >&2`.
+`echo "[githubpill] start preflight" >&2`.
 
 Verify `gh` is authenticated and capture starting rate budget:
 
@@ -191,13 +191,13 @@ printf '%s\n' "$RATE_BEFORE"
 ```
 
 If any step above fails, print stderr verbatim, emit
-`echo "[reporecon] error preflight: <reason>" >&2`, and STOP. Keep
+`echo "[githubpill] error preflight: <reason>" >&2`, and STOP. Keep
 `RATE_BEFORE` for the report header. Finish with
-`echo "[reporecon] done preflight" >&2`.
+`echo "[githubpill] done preflight" >&2`.
 
 ## Step 1: Sharpen the Idea
 
-`echo "[reporecon] start sharpen" >&2`.
+`echo "[githubpill] start sharpen" >&2`.
 
 Read `references/query-patterns.md` sections "Idea Sharpening" and
 "Proper-Noun Preservation Rule". ONE LLM call, temperature **0**. Emit the
@@ -205,11 +205,11 @@ exact Sharpening Output Schema JSON (`sharpened_sentence`, `preserved_terms`,
 `differentiator_keywords`). If any preserved term is dropped, re-prompt once
 with the term list re-injected.
 
-`echo "[reporecon] done sharpen" >&2`.
+`echo "[githubpill] done sharpen" >&2`.
 
 ## Step 2: Generate 7 Queries
 
-`echo "[reporecon] start query-gen" >&2`.
+`echo "[githubpill] start query-gen" >&2`.
 
 Using the "Query Archetypes" section of `query-patterns.md`, generate exactly
 **7 queries in ONE LLM call** — one per archetype (LITERAL, SYNONYM-SHIFTED,
@@ -224,11 +224,11 @@ directly, bypassing keyword ranking.
 
 Output: JSON array of 7 strings.
 
-`echo "[reporecon] done query-gen" >&2`.
+`echo "[githubpill] done query-gen" >&2`.
 
 ## Step 3: Discover (parallel)
 
-`echo "[reporecon] start discover" >&2`.
+`echo "[githubpill] start discover" >&2`.
 
 Run all 7 `gh_search` calls **in parallel**, capped at concurrency 4 (gh
 allows ~3 concurrent search calls before secondary-rate-limit; 4 is the safe
@@ -236,23 +236,23 @@ ceiling with `gh_search`'s reactive backoff). No preventive sleep — backoff
 fires on hit.
 
 ```bash
-mkdir -p "/tmp/reporecon-q-$$"
+mkdir -p "/tmp/githubpill-q-$$"
 export -f gh_search   # so xargs subshells see it
 printf '%s\n' "${QUERIES[@]}" | xargs -P 4 -I{} bash -c '
   Q="$1"
   SLUG=$(printf "%s" "$Q" | sha1sum | head -c 8)
-  gh_search "$Q" > "/tmp/reporecon-q-'"$$"'/${SLUG}.json"
+  gh_search "$Q" > "/tmp/githubpill-q-'"$$"'/${SLUG}.json"
 ' _ {}
 ```
 
-Collect every JSON file under `/tmp/reporecon-q-$$/` into the discovery pool.
+Collect every JSON file under `/tmp/githubpill-q-$$/` into the discovery pool.
 Optional per-query tick:
-`echo "[reporecon] tick discover $i/7" >&2`.
+`echo "[githubpill] tick discover $i/7" >&2`.
 
 If any `gh_search` exits with code 78 (rate-limit exhausted after retry),
 ABORT the run with its stderr.
 
-`echo "[reporecon] done discover" >&2`.
+`echo "[githubpill] done discover" >&2`.
 
 ## Step 3.5: Web Cross-Check (first-search baseline, MANDATORY)
 
@@ -265,17 +265,17 @@ to chat:
 
 ```
 ERROR: web-cross-check requires the WebSearch tool, which is not enabled in this
-session. RepoRecon refuses to emit a first-search verdict without it (silent
+session. GithubPill refuses to emit a first-search verdict without it (silent
 skip caused v0.1.0 blind-spot regressions).
 
 To proceed:
-- Run /reporecon in a session where WebSearch is available, OR
+- Run /githubpill in a session where WebSearch is available, OR
 - Enable WebSearch in your Claude Code allowed-tools for this skill.
 ```
 
 Then STOP. Do not emit any verdict, do not write any report.
 
-**If WebSearch IS available:** `echo "[reporecon] start web-cross-check" >&2`.
+**If WebSearch IS available:** `echo "[githubpill] start web-cross-check" >&2`.
 Generate exactly 5 WebSearch queries in ONE LLM call (temperature 0), per the
 5 required archetypes in web-cross-check.md. Then invoke the `WebSearch`
 tool **5 TIMES IN PARALLEL** — issue all 5 calls in one assistant turn. The
@@ -301,11 +301,11 @@ For each `web_candidate.url` that is NOT github.com:
 
 Skipping this step is a HARD ERROR. Silent skip is what caused v0.1.0 misses.
 
-`echo "[reporecon] done web-cross-check" >&2`.
+`echo "[githubpill] done web-cross-check" >&2`.
 
 ## Step 4: Dedup + Rank
 
-`echo "[reporecon] start dedup-rank" >&2`.
+`echo "[githubpill] start dedup-rank" >&2`.
 
 Apply the "Dedup & Ranking" rule from `query-patterns.md` to the **MERGED
 pool** (gh-pool + first-web GitHub candidates from Step 3.5): collect every
@@ -315,22 +315,22 @@ pool** (gh-pool + first-web GitHub candidates from Step 3.5): collect every
 The web-pool (`first-web-saas`) is judged separately via the rules in Step 6
 and does NOT participate in this dedup.
 
-`echo "[reporecon] done dedup-rank" >&2`.
+`echo "[githubpill] done dedup-rank" >&2`.
 
 ## Step 5: Verify
 
-`echo "[reporecon] start verify" >&2`.
+`echo "[githubpill] start verify" >&2`.
 
 For each of the 5 ranked candidates, run `gh_verify_repo "<owner/repo>"` in
 parallel (background jobs + `wait`, or `xargs -P 5`). Drop any candidate
 whose helper exits non-zero (404 — HARD RULE). Collect verified metadata
 JSON (including `verified_at` ISO timestamp and `contributor_count`).
 
-`echo "[reporecon] done verify" >&2`.
+`echo "[githubpill] done verify" >&2`.
 
 ## Step 6: Judge per candidate
 
-`echo "[reporecon] start judge" >&2`.
+`echo "[githubpill] start judge" >&2`.
 
 > **First-search judge stays sequential** — 5 candidates × ~15s = 75s,
 > subagent dispatch overhead would dominate. The parallel subagent fan-out
@@ -401,14 +401,14 @@ overlaps with your idea". Inputs: sharpened sentence, the verified candidate
 set with their final verdicts + `cand_description_narrative` strings. Output
 schema: `{"narrative_lead": "<2-3 sentences>"}`.
 
-`echo "[reporecon] done judge" >&2`.
+`echo "[githubpill] done judge" >&2`.
 
 ## Step 7: Emit Report
 
-`echo "[reporecon] start report" >&2`.
+`echo "[githubpill] start report" >&2`.
 
 Read `references/report-template.md`. Derive the slug per the "Slug Derivation
-Rule" (with collision suffix). Then `mkdir -p ./reporecon-reports` and
+Rule" (with collision suffix). Then `mkdir -p ./githubpill-reports` and
 re-capture rate budget into `RATE_AFTER` (same bash as Step 0 preflight).
 
 Substitute every `{{PLACEHOLDER}}`. Each GitHub-pool candidate block MUST
@@ -454,9 +454,9 @@ per `report-template.md` "Verdict Badge Rules".
 Use the **First-Search → Deep-Search Opt-In Footer** from `report-template.md`
 whenever the overall verdict is 🟡 or 🔴; omit the opt-in footer when the
 verdict is 🟢. Write via the `Write` tool to
-`./reporecon-reports/YYYY-MM-DD-<slug>.md`; never overwrite.
+`./githubpill-reports/YYYY-MM-DD-<slug>.md`; never overwrite.
 
-`echo "[reporecon] done report" >&2`.
+`echo "[githubpill] done report" >&2`.
 
 ## Step 8: Verdict block to chat
 
@@ -484,25 +484,25 @@ proceed to deep search.
 
 Initialize the deep-search run:
 - `RUN_TS=$(date -u +%Y%m%dT%H%M%SZ)`
-- `RUN_ROOT=/tmp/reporecon/run-${RUN_TS}` ; `mkdir -p "$RUN_ROOT"`
+- `RUN_ROOT=/tmp/githubpill/run-${RUN_TS}` ; `mkdir -p "$RUN_ROOT"`
 - `trap 'rm -rf "$RUN_ROOT"' EXIT INT TERM` — run-scoped cleanup (D2-06, D2-07).
 
-`echo "[reporecon] start boot-sweep" >&2`.
+`echo "[githubpill] start boot-sweep" >&2`.
 
 ## Step DEEP-A: Boot-Time /tmp Sweep
 
 Run literally (per D2-07):
 ```
-find /tmp/reporecon -mindepth 1 -maxdepth 1 -mmin +120 -exec rm -rf {} +
+find /tmp/githubpill -mindepth 1 -maxdepth 1 -mmin +120 -exec rm -rf {} +
 ```
 Removes orphan dirs >120 min old from prior aborted runs. Failures here are
 non-fatal — log and continue.
 
-`echo "[reporecon] done boot-sweep" >&2`.
+`echo "[githubpill] done boot-sweep" >&2`.
 
 ## Step DEEP-B: Discovery Expansion (gh api, parallel)
 
-`echo "[reporecon] start expand-discover" >&2`.
+`echo "[githubpill] start expand-discover" >&2`.
 
 Read `references/deep-search-protocol.md` sections "Discovery Expansion" and
 "Dedupe Rule". Generate **10 queries in ONE LLM call** (temperature 0) per the
@@ -516,23 +516,23 @@ guard as Step 3 — reactive backoff absorbs any secondary rate-limit). No
 preventive sleep.
 
 ```bash
-mkdir -p "/tmp/reporecon-dq-$$"
+mkdir -p "/tmp/githubpill-dq-$$"
 export -f gh_search
 printf '%s\n' "${DEEP_QUERIES[@]}" | xargs -P 4 -I{} bash -c '
   Q="$1"
   SLUG=$(printf "%s" "$Q" | sha1sum | head -c 8)
-  gh_search "$Q" > "/tmp/reporecon-dq-'"$$"'/${SLUG}.json"
+  gh_search "$Q" > "/tmp/githubpill-dq-'"$$"'/${SLUG}.json"
 ' _ {}
 ```
 
 Collect 10 JSON files into the discovery pool. Track gh rate budget delta
 (`gh api rate_limit` before/after). On any exit 78 from `gh_search`, ABORT.
 
-`echo "[reporecon] done expand-discover" >&2`.
+`echo "[githubpill] done expand-discover" >&2`.
 
 ## Step DEEP-C: WebSearch Expansion (parallel)
 
-`echo "[reporecon] start web-expand" >&2`.
+`echo "[githubpill] start web-expand" >&2`.
 
 Read `deep-search-protocol.md` section "WebSearch Protocol". Generate **5
 WebSearch queries** (one LLM call, temperature 0) biased toward
@@ -545,11 +545,11 @@ Discard any candidate whose helper exits non-zero (404 — HARD RULE per D2-04,
 T2-03). Capture verified metadata + `verified_at` timestamp. Never quote
 WebSearch snippet text into output — candidate URLs only.
 
-`echo "[reporecon] done web-expand" >&2`.
+`echo "[githubpill] done web-expand" >&2`.
 
 ## Step DEEP-D: Dedupe + Select for Cloning
 
-`echo "[reporecon] start dedup-select" >&2`.
+`echo "[githubpill] start dedup-select" >&2`.
 
 Combine three candidate pools by `full_name` (case-insensitive):
 1. first-search verified candidates (carry-forward, already verified — do NOT
@@ -564,11 +564,11 @@ Selection for cloning: take all first-search `WORTH_INSPECTING` candidates +
 any deep-search-discovered candidate whose description suggests overlap (LLM
 call, temperature 0, returns boolean per candidate). Cap at **8 candidates**.
 
-`echo "[reporecon] done dedup-select" >&2`.
+`echo "[githubpill] done dedup-select" >&2`.
 
 ## Step DEEP-E: Clone Loop
 
-`echo "[reporecon] start clone" >&2`.
+`echo "[githubpill] start clone" >&2`.
 
 For each selected candidate, clone via plain `git clone` (parallel up to 3
 via `xargs -P 3`):
@@ -577,7 +577,7 @@ via `xargs -P 3`):
 # Note: the safe-clone-guard PreToolUse hook automatically rewrites this
 # git clone with --depth 1 --filter=blob:none --single-branch --no-tags,
 # GIT_LFS_SKIP_SMUDGE=1, a 60s timeout wrapper, and the 50MB size cap.
-DEST=$(mktemp -d -t reporecon-XXXXXX --tmpdir=/tmp/reporecon)
+DEST=$(mktemp -d -t githubpill-XXXXXX --tmpdir=/tmp/githubpill)
 git clone "https://github.com/$OWNER_REPO" "$DEST"
 RC=$?
 case $RC in
@@ -587,14 +587,14 @@ case $RC in
 esac
 ```
 
-Successfully cloned dirs live under `/tmp/reporecon/reporecon-*` and are
+Successfully cloned dirs live under `/tmp/githubpill/githubpill-*` and are
 cleaned by the run-scoped trap on exit.
 
 For each successful clone, write the verified metadata JSON beside the clone
 and run vapor-check:
 
 ```bash
-echo "$VERIFIED_META_FOR_THIS_CAND" > "$DEST/.reporecon-meta.json"
+echo "$VERIFIED_META_FOR_THIS_CAND" > "$DEST/.githubpill-meta.json"
 VAPOR_JSON=$(vapor_check "$DEST" "$VERIFIED_META_FOR_THIS_CAND")
 VAPOR_RC=$?
 ```
@@ -603,11 +603,11 @@ VAPOR_RC=$?
 (`{claims, source_files, vapor}`) per candidate. Per D2-10, vapor IS a
 mechanical override — set on the candidate; the LLM does NOT decide vapor.
 
-`echo "[reporecon] done clone" >&2`.
+`echo "[githubpill] done clone" >&2`.
 
 ## Step DEEP-F: Deep-Search Judge per Candidate (PARALLEL via subagents)
 
-`echo "[reporecon] start judge-deep" >&2`.
+`echo "[githubpill] start judge-deep" >&2`.
 
 Read `references/judge-rubric.md` sections "Deep-Search 5-Level Verdict
 Derivation", "Deep-Search Evidence Rule (JDG-04 Full)", "Deep-Search File
@@ -650,7 +650,7 @@ expects (fill `{{CAND_DESCRIPTION_NARRATIVE}}`,
 
 **Dispatch all up-to-8 subagents in ONE turn** (parallel tool calls). Wait
 for all to return before proceeding to Step DEEP-G. Per-candidate ticks:
-`echo "[reporecon] tick judge-deep <owner/repo>" >&2` as each subagent
+`echo "[githubpill] tick judge-deep <owner/repo>" >&2` as each subagent
 returns.
 
 If any subagent returns `flag == "suspected_injection"`: set candidate
@@ -685,11 +685,11 @@ to the H1 badge per `references/report-template.md` "Verdict Badge Rules" —
 or all `VAPOR` → 🟡 (never downgrade to 🟢 once deep search has run — the user
 explicitly asked for deep inspection because first search said 🟡/🔴).
 
-`echo "[reporecon] done judge-deep" >&2`.
+`echo "[githubpill] done judge-deep" >&2`.
 
 ## Step DEEP-G: Your Angle Synthesis
 
-`echo "[reporecon] start your-angle" >&2`.
+`echo "[githubpill] start your-angle" >&2`.
 
 Read `references/report-template.md` section "Your Angle Section".
 
@@ -707,18 +707,18 @@ If `missing_features` is empty, set the bullet block to the literal
 `_No distinguishing features identified — your idea overlaps fully with existing candidates._`
 per D2-18.
 
-`echo "[reporecon] done your-angle" >&2`.
+`echo "[githubpill] done your-angle" >&2`.
 
 ## Step 9: Emit Deep-Search Report (REWRITE first-search report)
 
-`echo "[reporecon] start report-rewrite" >&2`.
+`echo "[githubpill] start report-rewrite" >&2`.
 
 Read `references/report-template.md` sections "Deep-Search Markdown Template
 (full file)", "Deep-Search Per-Candidate Block", "Your Angle Section", and
 "Deep-Search Completed Footer".
 
 **Rewrite, do NOT append.** Locate the per-idea first-search report at
-`./reporecon-reports/YYYY-MM-DD-<slug-of-this-idea>.md`. When deep search runs,
+`./githubpill-reports/YYYY-MM-DD-<slug-of-this-idea>.md`. When deep search runs,
 generate a SINGLE coherent report that includes:
 1. The deep-search verdict banner at the top (replacing the first-search banner)
 2. Your Angle synthesis (from Step DEEP-G)
@@ -748,7 +748,7 @@ deep-search verdicts as input), `{{CAND_DESCRIPTION_NARRATIVE}}`,
 DEEP-F subagent returns), `{{CAND_EVIDENCE_NARRATIVE}}` (SaaS candidates),
 `{{PROVENANCE_SUMMARY}}`, `{{CAND_STALENESS_SUFFIX}}`.
 
-`echo "[reporecon] done report-rewrite" >&2`.
+`echo "[githubpill] done report-rewrite" >&2`.
 
 ## Step 10: Deep-search verdict block to chat
 
@@ -758,7 +758,7 @@ path, rate budget consumed (deep-search delta).
 
 ## Discipline
 
-- All status ticks (`[reporecon] start|tick|done|error <stage>`) go to
+- All status ticks (`[githubpill] start|tick|done|error <stage>`) go to
   **stderr** so stdout stays clean for JSON pipelines.
 - Temperature 0 every LLM call (JDG-07); else "Respond deterministically." in prompt.
 - **HARD RULE:** no URL without `gh_verify_repo` 200 OK (PITFALLS.md #11).
@@ -773,7 +773,7 @@ path, rate budget consumed (deep-search delta).
 - Deep-search verdict labels (EXACT_MATCH / SIGNIFICANT_OVERLAP /
   PARTIAL_OVERLAP / SUPERFICIAL_MATCH / VAPOR) appear in output ONLY when
   deep search actually ran on this invocation.
-- Deep-search run-scoped trap (`/tmp/reporecon/run-${RUN_TS}`) cleans on
+- Deep-search run-scoped trap (`/tmp/githubpill/run-${RUN_TS}`) cleans on
   EXIT, INT, TERM — boot-time sweep handles orphans >120min old.
 - WebSearch results: candidate URLs only, never quoted snippet text
   (PITFALLS.md #7).

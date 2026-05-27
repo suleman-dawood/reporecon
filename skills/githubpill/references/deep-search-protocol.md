@@ -1,6 +1,6 @@
 # Deep-Search Protocol
 
-This reference is loaded on-demand by `skills/reporecon/SKILL.md` when the user explicitly opts into deep search after a first search 🟡 or 🔴 verdict. It documents the expanded discovery surface (WebSearch + 10 additional `gh api` query archetypes), the boot-time temp sweep, the 404-verification gate that applies to every URL, the dedupe rule across all sources, the safe-clone invocation contract, the `<untrusted_content>` wrapper plus truncation and sanitization steps, the file-selection algorithm for the judge call, and the cleanup discipline. deep search EXTENDS first search — it does not replace any of the first search guarantees (verified URLs, deterministic sharpening, one-candidate-per-judge-call).
+This reference is loaded on-demand by `skills/githubpill/SKILL.md` when the user explicitly opts into deep search after a first search 🟡 or 🔴 verdict. It documents the expanded discovery surface (WebSearch + 10 additional `gh api` query archetypes), the boot-time temp sweep, the 404-verification gate that applies to every URL, the dedupe rule across all sources, the safe-clone invocation contract, the `<untrusted_content>` wrapper plus truncation and sanitization steps, the file-selection algorithm for the judge call, and the cleanup discipline. deep search EXTENDS first search — it does not replace any of the first search guarantees (verified URLs, deterministic sharpening, one-candidate-per-judge-call).
 
 ## Trigger Conditions
 
@@ -16,7 +16,7 @@ If both conditions are met, proceed to the Boot-Time Cleanup Sweep below. Otherw
 Before any deep search discovery, verification, or cloning work begins, sweep orphaned run directories from prior aborted runs (per D2-07):
 
 ```bash
-find /tmp/reporecon -mindepth 1 -maxdepth 1 -mmin +120 -exec rm -rf {} +
+find /tmp/githubpill -mindepth 1 -maxdepth 1 -mmin +120 -exec rm -rf {} +
 ```
 
 The `mmin +120` predicate removes only directories older than 120 minutes — in-flight runs are not disturbed. The sweep is a single command, runs once per deep search entry, and its exit status is informational (a failure to sweep does NOT abort the run; the per-run `trap` in SKILL.md is the authoritative cleanup mechanism).
@@ -94,7 +94,7 @@ DEST=$(bash $CLAUDE_PLUGIN_ROOT/scripts/safe-clone.sh "<owner/repo>")
 
 Exit-code handling:
 
-- `0` — clone succeeded; `$DEST` is the absolute path to the clone under `/tmp/reporecon/`.
+- `0` — clone succeeded; `$DEST` is the absolute path to the clone under `/tmp/githubpill/`.
 - `11` — repo size exceeds the 50000 KB cap; skip the candidate with reason `oversize`.
 - `12` — `git clone` timed out (60s wrapper); skip with reason `timeout`.
 - `13` — repo is LFS-only (no inspectable source after `GIT_LFS_SKIP_SMUDGE=1`); skip with reason `lfs_only`.
@@ -166,6 +166,6 @@ Together with the README, this is the input to the per-candidate judge LLM call.
 
 ## Cleanup Discipline
 
-After deep search completes (success or failure), the SKILL.md run-scoped `trap` removes the entire run subtree under `/tmp/reporecon/<run-id>/`. The individual `safe-clone.sh` invocations DO NOT clean on success (the caller — SKILL.md — owns the lifetime). On `safe-clone.sh` failure, its own per-invocation trap cleans the partial clone directory immediately so the SKILL.md trap has less to do.
+After deep search completes (success or failure), the SKILL.md run-scoped `trap` removes the entire run subtree under `/tmp/githubpill/<run-id>/`. The individual `safe-clone.sh` invocations DO NOT clean on success (the caller — SKILL.md — owns the lifetime). On `safe-clone.sh` failure, its own per-invocation trap cleans the partial clone directory immediately so the SKILL.md trap has less to do.
 
-The boot-time sweep at the top of this protocol handles orphans from prior crashed runs; the run-scoped trap handles this run's cleanup. Together they bound `/tmp/reporecon/` usage even under abrupt termination.
+The boot-time sweep at the top of this protocol handles orphans from prior crashed runs; the run-scoped trap handles this run's cleanup. Together they bound `/tmp/githubpill/` usage even under abrupt termination.

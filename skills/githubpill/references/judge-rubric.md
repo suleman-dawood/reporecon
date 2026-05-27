@@ -1,6 +1,6 @@
 # First-Search Judge Rubric
 
-This document defines the trust-critical judgment machinery for RepoRecon's first-search pass.
+This document defines the trust-critical judgment machinery for GithubPill's first-search pass.
 SKILL.md MUST Read this file before issuing any judge call. The rubric exists to
 defeat two known failure modes: judge flip-flop on borderline repos (Pitfall 1)
 and confirmation bias toward "your idea is unique" (Pitfall 2).
