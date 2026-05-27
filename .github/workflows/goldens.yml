@@ -12,7 +12,7 @@ on:
         default: 'false'
   pull_request:
     paths:
-      - 'skills/reporecon/**'
+      - 'skills/githubpill/**'
       - 'scripts/**'
       - 'tests/**'
       - '.github/workflows/goldens.yml'
