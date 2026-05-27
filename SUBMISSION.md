@@ -7,7 +7,7 @@ top-to-bottom before opening the marketplace PR.
 ## Pre-release notes for v0.2.0
 
 This submission targets **v0.2.0**. See [CHANGELOG.md](./CHANGELOG.md) for the
-full diff against v0.1.0 — headline changes are the mandatory Tier 1 WebSearch
+full diff against v0.1.0 — headline changes are the mandatory first-search WebSearch
 cross-check (Step 3.5), two new query archetypes (`CANONICAL-NAMES`,
 `TOPIC-TAG`), the Closed-Source / SaaS Competitors report block, and the
 saturated-lane verdict rule. Reviewers should read the CHANGELOG before
@@ -39,8 +39,8 @@ exercising the smoke test below.
 - [ ] PR body MUST include:
   - Link to this repo's `README.md`
   - Links to 3 example runs under `examples/`
-  - Screenshot of a Tier 1 verdict block in chat
-  - One-line summary of what reporecon does + the Tier 1 / Tier 2 split
+  - Screenshot of a first-search verdict block in chat
+  - One-line summary of what reporecon does + the first-search / deep-search split
 - [ ] Wait for marketplace maintainer review; respond to review comments
       within 48h
 - [ ] Once approved, confirm the entry merges cleanly into the marketplace
