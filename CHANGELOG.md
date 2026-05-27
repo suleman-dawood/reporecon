@@ -3,6 +3,28 @@
 All notable changes to RepoRecon will be documented here.
 Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versioning: [SemVer](https://semver.org/).
 
+## [0.5.0] — 2026-05-27 — Convention-align refactor
+
+Architecture flip: the plugin is now script-less, matching the standard Claude Code plugin convention (skill + hook + references, no `scripts/` directory).
+
+### Removed
+- `scripts/` directory and all 9 helper scripts (preflight, gh-search, verify-repo, staleness, safe-clone, vapor-check, verify-url, cache, status). Their logic moved into SKILL.md as inline bash blocks the model runs via the Bash tool.
+- Step -1 (Resolve Plugin Root) — no longer needed; nothing depends on `$PLUGIN_ROOT/scripts/` paths.
+- Cache feature (Step -0.5, `--no-cache` / `--fresh` flags) — YAGNI; will reconsider if real users request it.
+- Per-script unit tests (`test-preflight.sh`, `test-gh-search.sh`, etc.) — the underlying scripts are gone.
+- E2E test suite — script-pipeline tests were tied to the removed scripts; goldens workflow covers end-to-end now.
+
+### Added
+- `hooks/safe-clone-guard.sh` — `PreToolUse:Bash` hook that intercepts every `git clone` command the model issues, performs the size pre-check, and rewrites with `--depth 1 --filter=blob:none --single-branch --no-tags GIT_LFS_SKIP_SMUDGE=1 timeout 60`. Replaces the old `scripts/safe-clone.sh`. Safety-critical clone semantics live in the hook because we don't trust the model to remember 30 lines of bash verbatim every run.
+- `tests/test-safe-clone-guard.sh` — unit tests the new hook (rewrite + deny + override + pass-through).
+
+### Changed
+- `SKILL.md` rewritten end-to-end with all bash inline. ~300 lines → ~530 lines.
+- `tests/install-validation.sh` checks the hook + manifest instead of the deleted scripts.
+
+### Why
+The previous architecture had 9 bash scripts the model shelled out to. Other Claude Code plugins (superpowers, claude-mem, context-mode, frontend-design, caveman) don't have `scripts/` directories — they use the model's native tools (Bash, Read, WebSearch, etc.) directly via SKILL.md prose. v0.5 brings RepoRecon in line with that convention. Net result: one source of truth (SKILL.md), no `$PLUGIN_ROOT` install-path fragility, smaller surface area for new contributors.
+
 ## v0.4.1 — 2026-05-27 — Bug fixes
 
 - `verify-repo.sh` now propagates exit code 78 from `gh_with_backoff` correctly. Previously, secondary-rate-limit exhaustion exited with 1, indistinguishable from 404/other errors. Callers (and the SKILL.md retry-aware logic) can now branch on 78 specifically.
@@ -87,6 +109,7 @@ User testing on v0.1.0 surfaced systematic blind spots in the GitHub-only discov
 - Plugin packaging for Claude Code marketplace.
 - 3 golden fixtures + planted-injection + planted-vapor fixtures.
 
+[0.5.0]: https://github.com/suleman-dawood/reporecon/compare/v0.4.1...v0.5.0
 [0.4.0]: https://github.com/suleman-dawood/reporecon/compare/v0.3.1...v0.4.0
 [0.3.1]: https://github.com/suleman-dawood/reporecon/compare/v0.3.0...v0.3.1
 [0.2.0]: https://github.com/suleman-dawood/reporecon/compare/v0.1.0...v0.2.0
