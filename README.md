@@ -17,15 +17,15 @@ A Claude Code plugin that checks if your project idea already exists on GitHub b
 /plugin install githubpill@githubpill
 ```
 
-Fully quit and reopen Claude Code so the plugin registers (not `/clear` — actually close the app process).
+> Fully quit and reopen Claude Code so the plugin registers (not `/clear`, you need to actually close the app process).
 
 ## Prerequisites
 
-- **`gh auth login`** — authenticated GitHub CLI session ([gh CLI docs](https://cli.github.com)). Anonymous rate limits will fail preflight.
-- `gh` ≥ 2.55
-- `jq` ≥ 1.7
-- **`WebSearch` tool must be enabled** in your Claude Code session — GithubPill aborts the run if it isn't. Silent skips were a 0.1 bug; we'd rather fail loudly.
-- macOS: `brew install bash coreutils` (GNU `timeout` + `bash` ≥ 4)
+- **gh auth login** — authenticated GitHub CLI session
+- gh ≥ 2.55
+- jq ≥ 1.7
+- **WebSearch tool must be enabled** in your Claude Code session
+- macOS: `brew install bash coreutils (GNU timeout + bash` ≥ 4)
 
 Verify:
 
@@ -33,7 +33,7 @@ Verify:
 gh auth status && gh --version && jq --version
 ```
 
-## Use
+Use:
 
 ```
 /githubpill I want to build a CLI that previews diffs as a side-by-side TUI
@@ -41,46 +41,18 @@ gh auth status && gh --version && jq --version
 
 Or just describe an idea naturally in chat:
 
-- *"is there already a tool that does X"*
-- *"validate my idea before I start building"*
-- *"does this exist on github"*
+- "is there already a tool that does X"
+- "validate my idea before I start building"
 
-You get a verdict in ~90 seconds. If it's 🟡 or 🔴, reply `deep search` (or `yes` / `dig deeper`) to clone the top candidates and get file-path-cited evidence (~10 min).
+You get a verdict in 60 seconds. If it's 🟡 or 🔴, you can go for a deep search to clone the top candidates and get file-path-cited evidence (~5 min).
 
 Reports land in `./githubpill-reports/YYYY-MM-DD-<slug>.md`. One file per idea.
 
-### What you'll see
-
-A chat verdict block like this:
-
-```
-🟡  Some overlap — worth a closer look
-
-Your idea: "side-by-side TUI diff previewer with syntax highlighting"
-Top match: dandavison/delta (28k★, active) — WORTH_INSPECTING
-
-Reply 'deep search' to clone the top candidates and judge
-with file-path evidence (~10 min).
-
-Report: ./githubpill-reports/2026-05-27-tui-diff-previewer.md
-```
-
-The on-disk report has the full per-candidate breakdown, axis scores, and — after a deep search — cited evidence by `path/file.ext:LINE`.
-
-## Not triggering?
-
-If `/githubpill` doesn't seem to do anything after install:
-
-1. Confirm the plugin shows up: type `/plugin` in chat
-2. Try the natural-language trigger ("does this exist on github") — bypasses slash-command routing
-3. `/plugin uninstall githubpill` → `/plugin install githubpill@githubpill` → **fully restart Claude Code** (close the app, not `/clear`)
-
 ## Limitations
 
-- **GitHub-only.** GitLab, Codeberg, self-hosted forges, and package-registry-only tools are not searched.
-- **WebSearch results drift.** Same query on different days can shift the verdict on borderline ideas.
+- **GitHub-only.** GitLab, Codeberg, self-hosted forges, and package-registry-only tools are not searched currently.
 - **Verify before you decide.** GithubPill narrows the search; it doesn't replace you making the final call yourself before you commit to a project.
 
 ## License
 
-MIT — see [LICENSE](./LICENSE).
+MIT :0 <- proof im human
